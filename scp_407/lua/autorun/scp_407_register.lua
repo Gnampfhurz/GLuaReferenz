@@ -1,6 +1,6 @@
-list.Set("SpawnableEntities", "scp_407_ent", {
+list.Set("SpawnableEntities", "ent_scp_407", {
     PrintName = "SCP-407",
-    ClassName = "scp_407_ent",
+    ClassName = "ent_scp_407t",
     Category = "SCP",
     Model = "models/props/cs_office/radio.mdl"
 })
@@ -14,4 +14,4 @@ scripted_ents.Register({
     Spawnable = true,
     AdminSpawnable = true,
     Model = "models/props/cs_office/radio.mdl"
-}, "scp_407_ent")
+}, "ent_scp_407")
