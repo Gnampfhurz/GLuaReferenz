@@ -37,9 +37,9 @@ end
 --Legt den Schaden fest, der am Ende der Transformation auftritt
 --Der Schaden ist hierbei variabel und wird in ENT:Activate113 festgelegt
 function ENT:TransformationDamage(ply, damageTick)
-    timer.Create("TransformationDamage", 2, 10, function()
+    timer.Create("TransformationDamage" .. ply:SteamID64(), 2, 10, function()
         if not ply:Alive() then
-            timer.Remove("TransformationDamage")
+            timer.Remove("TransformationDamage" .. ply:SteamID64())
             return
         end
         local dmg = DamageInfo()
@@ -54,9 +54,9 @@ end
 --This Girl is on Fire
 --Legt den Verbrennungseffekt fest, der am Anfang in der Lore auftritt wenn man SCP-113 aufhebt
 function ENT:ThisStoneIsOnFire(ply)
-    timer.Create("StartingBurnDamage", 0.1, 1, function()
+    timer.Create("StartingBurnDamage" .. ply:SteamID64(), 0.1, 1, function()
         if not ply:Alive() then
-            timer.Remove("StartingBurnDamage")
+            timer.Remove("StartingBurnDamage" .. ply:SteamID64())
             return
         end
         local dmg = DamageInfo()
@@ -69,10 +69,10 @@ function ENT:ThisStoneIsOnFire(ply)
 end
 
 --Bricht, wie der Name eigentlich schon sagt, alle (wichtigen) Timer ab
-local function abortAllTimer()
+local function abortAllTimer(ply)
     for _, timerToEnd in ipairs(timersToEnd) do
-        if timer.Exists(timerToEnd) then
-            timer.Remove(timerToEnd)
+        if timer.Exists(timerToEnd .. ply:SteamID64()) then
+            timer.Remove(timerToEnd .. ply:SteamID64())
         end
     end
 end
@@ -83,7 +83,7 @@ local function resetUseCount(ply)
     ply.useCount113 = nil
     net.Start("EndBlurAndShake")
     net.Send(ply)
-    abortAllTimer()
+    abortAllTimer(ply)
 end
 
 --Diese Funktion startet sobald der Effekt von SCP-113 ändert oder der Spieler nicht mehr eligable ist
@@ -120,10 +120,12 @@ local function modelChange(ply)
                 local modelNumber = math.random(1, modelAmount)
                 local newModel = v[modelNumber]
                 ply:SetModel(newModel)
+                return
             end
         end
     else
         ply:SetModel(originalModel113)
+        return
     end
 end
 
@@ -139,8 +141,8 @@ function ENT:StartDying(ply)
         local dmg = DamageInfo()
         dmg:SetDamage(5)
         dmg:SetDamageType(DMG_SLASH)
-        dmg:SetAttacker(game.GetWorld())
-        dmg:SetInflictor(game.GetWorld())
+        dmg:SetAttacker(self)
+        dmg:SetInflictor(self)
         ply:TakeDamageInfo(dmg)
     end)
 end
@@ -153,7 +155,7 @@ function ENT:StoneIsCarried(ply)
     self:DrawShadow(false)
     self:SetCollisionGroup(COLLISION_GROUP_IN_VEHICLE)
     self:SetNotSolid(true)
-    timer.Create("Drop113", 82, 1, function()
+    timer.Create("Drop113" .. ply:SteamID64(), 82, 1, function()
         drop113(ply, true)
     end)
 end
@@ -162,7 +164,7 @@ end
 --Hier wird die Aktivierung des SCPs gestartet
 --Es können ein paar Variablen zur einfach Anpassung angelegt werden
 function ENT:Activate113(ply)
-    local threshhold = 0                --Dient dazu festzulegen wie oft man das SCP nutzen kann, bevor man zum Zombie wird. Threshhold + 1 ist die Nutzung die den Spieler zum Zombie macht.
+    local threshhold = 4                --Dient dazu festzulegen wie oft man das SCP nutzen kann, bevor man zum Zombie wird. Threshhold + 1 ist die Nutzung die den Spieler zum Zombie macht.
     local transformationCD = 60         --Dient dazu festzulegen nach welcher Zeit der Schadenseffekt der Transformation einsetzt und damit die endgültige Transformation beginnt.
     local modelChangeCD = 82            --Dient dazu festzulegen nach welcher Zeit das Model tatsächlich gewechselt wird.
     self.currentUser = ply
@@ -174,25 +176,25 @@ function ENT:Activate113(ply)
     self:ThisStoneIsOnFire(ply)
     self:StoneIsCarried(ply)
     if ply.useCount113 <= threshhold then
-        timer.Create("StartTransformationDamage", transformationCD, 1, function()
+        timer.Create("StartTransformationDamage" .. ply:SteamID64(), transformationCD, 1, function()
             self:TransformationDamage(ply, 1)
         end)
-        timer.Create("ModelChange", modelChangeCD, 1, function()
+        timer.Create("ModelChange" .. ply:SteamID64(), modelChangeCD, 1, function()
             modelChange(ply)
         end)
     elseif ply.useCount113 == threshhold + 1 then       
-        timer.Create("StartTransformationDamage", transformationCD, 1, function()
+        timer.Create("StartTransformationDamage" .. ply:SteamID64(), transformationCD, 1, function()
             self:TransformationDamage(ply, 2)
         end)
-        timer.Create("ModelChange", modelChangeCD, 1, function()
+        timer.Create("ModelChange" .. ply:SteamID64(), modelChangeCD, 1, function()
             ply:SetModel("models/player/undead/undead.mdl")
             self:StartDying(ply)
         end)
     else
-        timer.Create("StartTransformationDamage", transformationCD, 1, function()
+        timer.Create("StartTransformationDamage" .. ply:SteamID64(), transformationCD, 1, function()
             self:TransformationDamage(ply, 10)
         end)
-        timer.Create("ModelChange", modelChangeCD, 1, function()
+        timer.Create("ModelChange" .. ply:SteamID64(), modelChangeCD, 1, function()
             ply:Kill()
         end)
     end
@@ -212,7 +214,7 @@ end
 
 local function isModelValid(ply)
     local playerModel = ply:GetModel()
-    for k, _ in ipairs(models) do
+    for k, _ in pairs(models) do
         if playerModel == k then
             return true
         end
