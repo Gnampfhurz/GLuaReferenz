@@ -363,9 +363,9 @@ function ENT:HandleAuraEffects()
                         local exposureTime = ply.SCP407Time or 0
             
                         if exposureTime > 250 then
-                            treeModel = "models/props/de_inferno/bushgreenbig.mdl"
+                            treeModel = "models/props_foliage/shrub_01a.mdl"
                         elseif exposureTime >= 180 then
-                            treeModel = "models/props/de_inferno/bushsmall.mdl"
+                            treeModel = "models/perftest/grass_tuft_001.mdl"
                         end
             
                         if not treeModel then return end
@@ -444,9 +444,9 @@ hook.Add("PlayerDeath", "SCP407_SpawnTreeOnDeath", function(ply)
         local treeModel
 
         if exposureTime > 250 then
-            treeModel = "models/props/de_inferno/bushgreenbig.mdl" -- Großer Busch
+            treeModel = "models/props_foliage/shrub_01a.mdl" -- Großer Busch
         else
-            treeModel = "models/props/de_inferno/bushsmall.mdl" -- Kleiner Busch
+            treeModel = "models/perftest/grass_tuft_001.mdl" -- Kleiner Busch
         end
 
         if not treeModel then return end
