@@ -328,12 +328,9 @@ function ENT:HandleAuraEffects()
         -- Nur wenn Spieler in Reichweite und SCP aktiv ist
         if inRange then
             if not data.wasInRange then
-                -- Spieler war vorher draußen, jetzt wieder drin -> Zeitsystem resynchronisieren
                 data.baseTime = now - (data.timeAffected or 0)
                 data.wasInRange = true
             end
-
-            -- Aktualisiere aktive Zeit
             data.timeAffected = now - data.baseTime
             ply.SCP407Time = data.timeAffected
 
@@ -344,12 +341,10 @@ function ENT:HandleAuraEffects()
                 net.WriteBool(true)
             net.Send(ply)
 
-            -- Handle Effekte basierend auf Zeit
+            -- Effekte basierend auf Zeit
             if data.timeAffected < 60 then
-                -- Heilung
                 ply:SetHealth(math.min(ply:GetMaxHealth(), ply:Health() + 1))
             elseif data.timeAffected >= 180 and data.timeAffected < 300 then
-                -- Leichter Schaden
                 ply:TakeDamage(0.4, self, self)
             elseif data.timeAffected >= 300 and not ply.SCP407Killed then
                 -- Tod und Baumspawn
@@ -381,7 +376,7 @@ function ENT:HandleAuraEffects()
                 self:RemovePlayerFromEffect(ply)
             end
 
-            -- Modelländerung ab 180 Sekunden
+            -- Modellaenderung ab 180 Sekunden
             if data.timeAffected >= 180 and not ply.SCP407ModelChanged then
                 ply:SetModel("models/player/zombie_classic.mdl")
                 ply.SCP407ModelChanged = true
@@ -393,7 +388,7 @@ function ENT:HandleAuraEffects()
             end
 
         else
-            -- Spieler ist draußen -> Zeit einfrieren
+            -- Spieler ausserhalb der Range Zeit stop
             if data.wasInRange then
                 data.timeAffected = now - data.baseTime
                 data.wasInRange = false
