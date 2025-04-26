@@ -132,6 +132,7 @@ hook.Add("RenderScreenspaceEffects", "SCP407_ShowAuraEffect", function()
         ["$pp_colour_colour"] = 1 - strength * 0.15,
         ["$pp_colour_mulg"] = strength * 0.6
     })
+
 end)
 
 hook.Add("PlayerSpawn", "SCP407_ClearAuraOnSpawn", function(ply)
@@ -156,11 +157,11 @@ function ENT:Draw()
     local text, clr = "Verfügbar", Color(68, 255, 68)
 
     if state.active >= state.maxUsers then
-        text, clr = "Spielt Musik", Color(255, 123, 0)
+        text, clr = "Spielt Musik", Color(255, 230, 0)
     elseif state.active == 2 then 
-        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 162, 0)
+        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 162, 0) -- Noch aus alter version
     elseif state.active == 1 then
-        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(0, 223, 0)
+        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(0, 223, 0) -- Dasselbe hier
     end
 
     cam.Start3D2D(pos, ang, 0.1)
