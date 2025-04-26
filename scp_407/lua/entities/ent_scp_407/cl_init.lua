@@ -1,4 +1,13 @@
 include("shared.lua")
+sound.Add({
+    name = "",
+    channel = CHAN_AUTO,
+    volume = 1.0,
+    level = 75,
+    pitch = {95, 110},
+    sound = "scp/407_loop.mp3"
+})
+
 debugData = {}
 
 local auraTable = {}
@@ -155,7 +164,7 @@ function ENT:Draw()
     local text, clr = "Verfügbar", Color(68, 255, 68)
 
     if state.active >= state.maxUsers then
-        text, clr = "Voll (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 0, 0)
+        text, clr = "Spielt Musik (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 0, 0)
     elseif state.active == 2 then 
         text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 162, 0)
     elseif state.active == 1 then

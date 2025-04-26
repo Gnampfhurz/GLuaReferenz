@@ -2,7 +2,10 @@ AddCSLuaFile("cl_init.lua")
 AddCSLuaFile("shared.lua")
 include("shared.lua")
 
--- Sync
+if SERVER then
+    resource.AddFile("sound/scp/407_loop.mp3") -- Wichtig für Clients sonst kein Sound
+end
+
 local netStrings = {
     "scp407_playSound",
     "scp407_updateTime",
@@ -25,23 +28,28 @@ function ENT:Initialize()
 
     local phys = self:GetPhysicsObject()
     if not phys or not phys:IsValid() then
-        print("SCP-407 Fehler: Phys geht nicht!")
+        print("[SCP-407] Achtung: PhysObj konnte nicht geladen werden!")
         return
     end
 
     phys:Wake()
 
-    self.Users = {}
+    -- Var
+    self.AffectedPlayers = {}
     self.InputBuffer = {}
-    self.MaxAllowed = 3 -- Einstellbar wie viele das SCP nutzen koennen
-    self.LoopLength = 136 -- Laenge vom Loop-Sound
+    self.IsActive = false -- Startet deaktiviert
+    self.Radius = 300 -- Standartradius
+    self.LoopLength = 136 -- Laenge vom Loop in Sekunden
+    self.Activator = nil -- Dazu da um zu zeigen wer es aktiviert hat
 
     self:SetActiveUserCount(0)
     self:SyncStatusToClients()
+    self.DebugLastUpdate = 0 -- fue Debug
 
-    -- Checks ob der getestete noch im Bereich von 407 ist
+    -- Hauptdenker
     timer.Create("scp407_thinker_" .. self:EntIndex(), 0.5, 0, function()
         if self:IsValid() then
+            self:HandleNearbyPlayers()
             self:HandleAuraEffects()
         end
     end)
@@ -50,11 +58,11 @@ end
 function ENT:SyncStatusToClients()
     net.Start("scp407_updateStatus")
         net.WriteEntity(self)
-        net.WriteInt(self:GetActiveUserCount(), 8)
-        net.WriteInt(self.MaxAllowed, 8)
+        net.WriteInt(self:GetActiveUserCount(), 8) 
+        net.WriteInt(1, 8) -- MaxUser ist fix 1, aber bleibt drin
     net.Broadcast()
 end
--- SHIFT + E zum aufheben wie auf dem RP Server (Wahrscheinlich unnoetig weil ihr das E einfach mit Shift + E gewechselt hattet nh)
+
 function ENT:Use(ply)
     if ply:KeyDown(IN_SPEED) and ply:KeyDown(IN_USE) and not self:IsPlayerHolding() then
         ply:PickupObject(self)
@@ -71,12 +79,12 @@ function ENT:Think()
         if not ply:KeyDown(IN_USE) then
             self.InputBuffer[ply] = nil
         elseif CurTime() - t >= 2 then
-            if self:IsUserActive(ply) then
-                self:DeactivateUser(ply)
+            if self.IsActive then
+                self:DeactivateSCP(ply)
             else
-                self:ActivateUser(ply)
+                self:ActivateSCP(ply)
             end
-            self.InputBuffer = {}
+            self.InputBuffer = {} -- Reset damit man nicht doppelt ausloest
         end
     end
 
@@ -84,31 +92,124 @@ function ENT:Think()
     return true
 end
 
-function ENT:IsUserActive(ply)
-    return self.Users[ply] ~= nil
+function ENT:IsPlayerInRange(ply)
+    return ply:GetPos():DistToSqr(self:GetPos()) <= (self.Radius * self.Radius)
+end
+function ENT:ActivateSCP(ply)
+    if self.IsActive then return end
+    
+    self.IsActive = true
+    self.Activator = ply
+    self:SetActiveUserCount(1)
+    self:SyncStatusToClients()
+
+    print("[SCP-407] Aktiviert von " .. ply:Nick())
+
+    self:HandleNearbyPlayers()
+    self:BroadcastSoundToNearbyPlayers(true)
 end
 
-function ENT:ActivateUser(ply)
-    if self:GetActiveUserCount() >= self.MaxAllowed and not self:IsUserActive(ply) then
-        ply:ChatPrint("SCP-407 ist voll belagert! Warte bis einer Platz macht.") -- Anpassbar xD VOLL BELAGERT!!
-        return
+function ENT:DeactivateSCP(ply)
+    if not self.IsActive then return end
+
+    self.IsActive = false
+    self.Activator = nil
+    self:SetActiveUserCount(0)
+    self:SyncStatusToClients()
+
+    print("[SCP-407] Deaktiviert von " .. ply:Nick())
+
+    for affectedPly, _ in pairs(self.AffectedPlayers) do
+        if IsValid(affectedPly) then
+            net.Start("scp407_playSound")
+                net.WriteEntity(self)
+                net.WriteBool(false)
+                net.WriteFloat(0)
+                net.WriteFloat(0)
+            net.Send(affectedPly)
+        end
     end
+end
+
+function ENT:HandleNearbyPlayers()
+    if not self.IsActive then return end
+
+    local currentTime = CurTime()
+    local entPos = self:GetPos()
+    local radiusSquared = self.Radius * self.Radius
+
+    -- PVS Check | Ist crazy 
+    local playersToCheck = {}
+    for _, ply in ipairs(ents.FindInPVS(self)) do
+        if ply:IsPlayer() and ply:Alive() then
+            table.insert(playersToCheck, ply)
+        end
+    end
+
+    -- Reichweite Check | Noch crazier
+    local preFiltered = {}
+    for _, ply in ipairs(playersToCheck) do
+        if ply:GetPos():DistToSqr(entPos) <= radiusSquared * 1.2 then
+            table.insert(preFiltered, ply)
+        end
+    end
+
+    for _, ply in ipairs(preFiltered) do
+        local inRange = ply:GetPos():DistToSqr(entPos) <= radiusSquared
+        if inRange and not self.AffectedPlayers[ply] then
+            self:AddPlayerToEffect(ply)
+        elseif inRange and self.AffectedPlayers[ply] then
+            self.AffectedPlayers[ply].outOfRangeTime = nil
+        end
+    end
+
+    for ply, data in pairs(self.AffectedPlayers) do
+        if not IsValid(ply) or not ply:Alive() then
+            self:RemovePlayerFromEffect(ply)
+            continue
+        end
+
+        local stillInRange = ply:GetPos():DistToSqr(entPos) <= radiusSquared
+
+        if not stillInRange then
+            data.outOfRangeTime = data.outOfRangeTime or currentTime
+
+            if currentTime - data.outOfRangeTime > 30 then
+                self:RemovePlayerFromEffect(ply)
+                ply:ChatPrint("SCP-407 wirkt nicht mehr auf dich. Du bist zu weit weg!")
+            end
+
+            net.Start("scp407_updateTime")
+                net.WriteEntity(ply)
+                net.WriteFloat(data.timeAffected)
+                net.WriteBool(false)
+            net.Send(ply)
+        end
+    end
+
+    if self.IsActive then
+        self:UpdateSoundForAllPlayers()
+    end
+end
+function ENT:AddPlayerToEffect(ply)
+    if self.AffectedPlayers[ply] then return end
 
     local now = CurTime()
+    local startTime = 0
+
     if ply.SCP407LastTime and ply.SCP407LastTime > 0 then
-        now = CurTime() - ply.SCP407LastTime
+        startTime = now - ply.SCP407LastTime
     end
 
-    self.Users[ply] = {
-        baseTime = now,
-        modelBefore = ply:GetModel()
+    self.AffectedPlayers[ply] = {
+        baseTime = now - startTime,
+        timeAffected = startTime,
+        modelBefore = ply:GetModel(),
+        outOfRangeTime = nil
     }
 
-    ply.SCP407Time = 0
+    ply.SCP407Time = startTime
     ply.SCP407OriginalModel = ply:GetModel()
-
-    self:SetActiveUserCount(self:GetActiveUserCount() + 1)
-    self:SyncStatusToClients()
 
     net.Start("scp407_playSound")
         net.WriteEntity(self)
@@ -116,9 +217,13 @@ function ENT:ActivateUser(ply)
         net.WriteFloat(0)
         net.WriteFloat(1.0)
     net.Send(ply)
+
+    print("[SCP-407] Spieler " .. ply:Nick() .. " wurde beeinflusst.")
 end
 
-function ENT:DeactivateUser(ply, keep)
+function ENT:RemovePlayerFromEffect(ply, keepTime)
+    if not self.AffectedPlayers[ply] then return end
+
     net.Start("scp407_playSound")
         net.WriteEntity(self)
         net.WriteBool(false)
@@ -126,56 +231,93 @@ function ENT:DeactivateUser(ply, keep)
         net.WriteFloat(0)
     net.Send(ply)
 
-    if not keep then
+    if not keepTime then
         net.Start("scp407_resetEffects")
             net.WriteEntity(ply)
         net.Broadcast()
+
         ply.SCP407LastTime = 0
     else
-        ply.SCP407LastTime = ply.SCP407Time or 0
+        ply.SCP407LastTime = self.AffectedPlayers[ply].timeAffected or 0
     end
 
-    self.Users[ply] = nil
-    self:SetActiveUserCount(self:GetActiveUserCount() - 1)
-    self:SyncStatusToClients()
+    self.AffectedPlayers[ply] = nil
+
+    print("[SCP-407] Spieler " .. ply:Nick() .. " nicht mehr beeinflusst.")
 end
 
-function ENT:RemoveAllUsers()
-    for ply in pairs(self.Users) do
-        self:DeactivateUser(ply)
-    end
-end
+function ENT:UpdateSoundForAllPlayers()
+    local entPos = self:GetPos()
+    local fadeDistance = self.Radius * 0.8
+    local radiusMinusFade = self.Radius - fadeDistance
 
-function ENT:HandleAuraEffects()
-    for ply, data in pairs(self.Users) do
-        if not ply:Alive() then
-            self:DeactivateUser(ply)
-            continue
-        end
+    local playersToUpdate = {}
 
-        local dist = ply:GetPos():Distance(self:GetPos())
-        local inRange = dist <= (self.Range or 512) -- 512 ist der fallback fallback falls die Distance nicht gesetzt ist/wird
+    for ply, _ in pairs(self.AffectedPlayers) do
+        if not IsValid(ply) then continue end
 
-        if not inRange then
-            data.outOfRangeTime = data.outOfRangeTime or CurTime()
+        local distance = ply:GetPos():Distance(entPos)
+        if distance <= self.Radius then
+            local volume = 1.0
 
-            if CurTime() - data.outOfRangeTime > 30 then -- Nach 30 Sek soll das SCp von selber fuer ihn ausgehen um ress zu sparen
-                self:DeactivateUser(ply, true)
-                ply:ChatPrint("SCP-407 wirkt jetzt nicht mehr weiter auf dich. Du bist zu weit weg")
-                continue
+            if distance > fadeDistance then
+                volume = 1.0 - ((distance - fadeDistance) / radiusMinusFade)
             end
 
-            net.Start("scp407_updateTime")
-                net.WriteEntity(ply)
-                net.WriteFloat(ply.SCP407Time or 0)
-                net.WriteBool(false)
+            table.insert(playersToUpdate, {
+                player = ply,
+                volume = math.Clamp(volume, 0, 1)
+            })
+        end
+    end
+
+    local groupSize = 5 -- Maximal 5 gleichzeitig updaten fuer Performance
+    for i = 1, #playersToUpdate, groupSize do
+        local endIndex = math.min(i + groupSize - 1, #playersToUpdate)
+
+        for j = i, endIndex do
+            local data = playersToUpdate[j]
+
+            net.Start("scp407_playSound")
+                net.WriteEntity(self)
+                net.WriteBool(true)
+                net.WriteFloat(0)
+                net.WriteFloat(data.volume)
+            net.Send(data.player)
+        end
+    end
+end
+
+function ENT:BroadcastSoundToNearbyPlayers(shouldPlay)
+    for _, ply in ipairs(player.GetAll()) do
+        if self:IsPlayerInRange(ply) then
+            net.Start("scp407_playSound")
+                net.WriteEntity(self)
+                net.WriteBool(shouldPlay)
+                net.WriteFloat(0)
+                net.WriteFloat(shouldPlay and 1.0 or 0)
             net.Send(ply)
+        end
+    end
+end
+function ENT:HandleAuraEffects()
+    if not self.IsActive then return end
+
+    for ply, data in pairs(self.AffectedPlayers) do
+        if not ply:Alive() then
+            self:RemovePlayerFromEffect(ply)
             continue
-        else
-            data.outOfRangeTime = nil
         end
 
-        local elapsed = CurTime() - data.baseTime
+        local inRange = self:IsPlayerInRange(ply)
+
+        if not inRange then
+            continue
+        end
+
+        local now = CurTime()
+        local elapsed = now - data.baseTime
+        data.timeAffected = elapsed
         ply.SCP407Time = elapsed
 
         net.Start("scp407_updateTime")
@@ -185,8 +327,9 @@ function ENT:HandleAuraEffects()
         net.Send(ply)
 
         if elapsed >= 180 and not ply.SCP407ModelChanged then
-            ply.SCP407ModelChanged = true
             ply:SetModel("models/player/zombie_classic.mdl")
+            ply.SCP407ModelChanged = true
+
             net.Start("scp407_changeModel")
                 net.WriteEntity(ply)
                 net.WriteBool(true)
@@ -208,23 +351,32 @@ function ENT:HandleAuraEffects()
                     tree:SetPos(pos)
                     tree:SetAngles(Angle(0, math.random(0, 360), 0))
                     tree:Spawn()
+
                     if tree:GetPhysicsObject():IsValid() then
                         tree:GetPhysicsObject():EnableMotion(false)
                     end
 
                     timer.Simple(180, function()
-                        if tree:IsValid() then tree:Remove() end
+                        if tree:IsValid() then
+                            tree:Remove()
+                        end
                     end)
                 end)
             end
             ply.SCP407Killed = true
-            self:DeactivateUser(ply)
+            self:RemovePlayerFromEffect(ply)
         end
     end
 end
 
 function ENT:OnRemove()
-    self:RemoveAllUsers()
+    if self.IsActive then
+        for ply, _ in pairs(self.AffectedPlayers) do
+            self:RemovePlayerFromEffect(ply)
+        end
+    end
+
+    self.AffectedPlayers = {}
     timer.Remove("scp407_thinker_" .. self:EntIndex())
 end
 
@@ -243,8 +395,8 @@ hook.Add("PlayerDeath", "SCP407_ResetOnDeath", function(ply)
     ply.SCP407ModelChanged = nil
 
     for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
-        if ent:IsValid() then
-            ent:DeactivateUser(ply)
+        if ent:IsValid() and ent.AffectedPlayers and ent.AffectedPlayers[ply] then
+            ent:RemovePlayerFromEffect(ply)
         end
     end
 end)
@@ -266,8 +418,8 @@ end)
 
 hook.Add("PlayerDisconnected", "SCP407_CleanupOnDisconnect", function(ply)
     for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
-        if ent:IsValid() then
-            ent:DeactivateUser(ply)
+        if ent:IsValid() and ent.AffectedPlayers and ent.AffectedPlayers[ply] then
+            ent:RemovePlayerFromEffect(ply)
         end
     end
 end)
