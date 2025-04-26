@@ -35,7 +35,7 @@ function ENT:Initialize()
     phys:Wake()
 
     -- Var
-    self.AffectedPlayers = {}
+    self.BaumifiziertePlayer = {}
     self.InputBuffer = {}
     self.IsActive = false -- Startet deaktiviert
     self.Radius = 300 -- Standartradius
@@ -119,7 +119,7 @@ function ENT:DeactivateSCP(ply)
 
     print("[SCP-407] Deaktiviert von " .. ply:Nick())
 
-    for affectedPly, _ in pairs(self.AffectedPlayers) do
+    for affectedPly, _ in pairs(self.BaumifiziertePlayer) do
         if IsValid(affectedPly) then
             net.Start("scp407_playSound")
                 net.WriteEntity(self)
@@ -156,14 +156,14 @@ function ENT:HandleNearbyPlayers()
 
     for _, ply in ipairs(preFiltered) do
         local inRange = ply:GetPos():DistToSqr(entPos) <= radiusSquared
-        if inRange and not self.AffectedPlayers[ply] then
+        if inRange and not self.BaumifiziertePlayer[ply] then
             self:AddPlayerToEffect(ply)
-        elseif inRange and self.AffectedPlayers[ply] then
-            self.AffectedPlayers[ply].outOfRangeTime = nil
+        elseif inRange and self.BaumifiziertePlayer[ply] then
+            self.BaumifiziertePlayer[ply].outOfRangeTime = nil
         end
     end
 
-    for ply, data in pairs(self.AffectedPlayers) do
+    for ply, data in pairs(self.BaumifiziertePlayer) do
         if not IsValid(ply) or not ply:Alive() then
             self:RemovePlayerFromEffect(ply)
             continue
@@ -192,7 +192,7 @@ function ENT:HandleNearbyPlayers()
     end
 end
 function ENT:AddPlayerToEffect(ply)
-    if self.AffectedPlayers[ply] then return end
+    if self.BaumifiziertePlayer[ply] then return end
 
     local now = CurTime()
     local startTime = 0
@@ -201,7 +201,7 @@ function ENT:AddPlayerToEffect(ply)
         startTime = now - ply.SCP407LastTime
     end
 
-    self.AffectedPlayers[ply] = {
+    self.BaumifiziertePlayer[ply] = {
         baseTime = now - startTime,
         timeAffected = startTime,
         modelBefore = ply:GetModel(),
@@ -222,7 +222,7 @@ function ENT:AddPlayerToEffect(ply)
 end
 
 function ENT:RemovePlayerFromEffect(ply, keepTime)
-    if not self.AffectedPlayers[ply] then return end
+    if not self.BaumifiziertePlayer[ply] then return end
 
     net.Start("scp407_playSound")
         net.WriteEntity(self)
@@ -238,10 +238,10 @@ function ENT:RemovePlayerFromEffect(ply, keepTime)
 
         ply.SCP407LastTime = 0
     else
-        ply.SCP407LastTime = self.AffectedPlayers[ply].timeAffected or 0
+        ply.SCP407LastTime = self.BaumifiziertePlayer[ply].timeAffected or 0
     end
 
-    self.AffectedPlayers[ply] = nil
+    self.BaumifiziertePlayer[ply] = nil
 
     print("[SCP-407] Spieler " .. ply:Nick() .. " nicht mehr beeinflusst.")
 end
@@ -253,7 +253,7 @@ function ENT:UpdateSoundForAllPlayers()
 
     local playersToUpdate = {}
 
-    for ply, _ in pairs(self.AffectedPlayers) do
+    for ply, _ in pairs(self.BaumifiziertePlayer) do
         if not IsValid(ply) then continue end
 
         local distance = ply:GetPos():Distance(entPos)
@@ -303,7 +303,7 @@ end
 function ENT:HandleAuraEffects()
     if not self.IsActive then return end
 
-    for ply, data in pairs(self.AffectedPlayers) do
+    for ply, data in pairs(self.BaumifiziertePlayer) do
         if not ply:Alive() then
             self:RemovePlayerFromEffect(ply)
             continue
@@ -371,12 +371,12 @@ end
 
 function ENT:OnRemove()
     if self.IsActive then
-        for ply, _ in pairs(self.AffectedPlayers) do
+        for ply, _ in pairs(self.BaumifiziertePlayer) do
             self:RemovePlayerFromEffect(ply)
         end
     end
 
-    self.AffectedPlayers = {}
+    self.BaumifiziertePlayer = {}
     timer.Remove("scp407_thinker_" .. self:EntIndex())
 end
 
@@ -395,7 +395,7 @@ hook.Add("PlayerDeath", "SCP407_ResetOnDeath", function(ply)
     ply.SCP407ModelChanged = nil
 
     for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
-        if ent:IsValid() and ent.AffectedPlayers and ent.AffectedPlayers[ply] then
+        if ent:IsValid() and ent.BaumifiziertePlayer and ent.BaumifiziertePlayer[ply] then
             ent:RemovePlayerFromEffect(ply)
         end
     end
@@ -418,7 +418,7 @@ end)
 
 hook.Add("PlayerDisconnected", "SCP407_CleanupOnDisconnect", function(ply)
     for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
-        if ent:IsValid() and ent.AffectedPlayers and ent.AffectedPlayers[ply] then
+        if ent:IsValid() and ent.BaumifiziertePlayer and ent.BaumifiziertePlayer[ply] then
             ent:RemovePlayerFromEffect(ply)
         end
     end
