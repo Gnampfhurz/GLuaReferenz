@@ -132,14 +132,6 @@ hook.Add("RenderScreenspaceEffects", "SCP407_ShowAuraEffect", function()
         ["$pp_colour_colour"] = 1 - strength * 0.15,
         ["$pp_colour_mulg"] = strength * 0.6
     })
-
-    if duration > 120 then
-        DrawMotionBlur(0.2, math.min((duration - 120) / 180, 0.8), 0.01)
-    end
-
-    if duration > 180 then
-        DrawBloom(0.3, strength * 1.5, 8, 8, 2, 1, 0, 1, 0)
-    end
 end)
 
 hook.Add("PlayerSpawn", "SCP407_ClearAuraOnSpawn", function(ply)
@@ -164,7 +156,7 @@ function ENT:Draw()
     local text, clr = "Verfügbar", Color(68, 255, 68)
 
     if state.active >= state.maxUsers then
-        text, clr = "Spielt Musik (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 0, 0)
+        text, clr = "Spielt Musik", Color(255, 123, 0)
     elseif state.active == 2 then 
         text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 162, 0)
     elseif state.active == 1 then
