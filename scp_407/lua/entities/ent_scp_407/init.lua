@@ -29,6 +29,7 @@ function ENT:Initialize()
 local phys = self:GetPhysicsObject()
 if not IsValid(phys) then
     Warning("Phys fehler")
+    return 
 end
 
 
@@ -328,9 +329,12 @@ function ENT:HandleAuraEffects()
         -- Nur wenn Spieler in Reichweite und SCP aktiv ist
         if inRange then
             if not data.wasInRange then
+                -- Spieler war vorher draußen, jetzt wieder drin -> Zeitsystem resynchronisieren
                 data.baseTime = now - (data.timeAffected or 0)
                 data.wasInRange = true
             end
+
+            -- Aktualisiere aktive Zeit
             data.timeAffected = now - data.baseTime
             ply.SCP407Time = data.timeAffected
 
@@ -351,20 +355,34 @@ function ENT:HandleAuraEffects()
                 if not ply:HasGodMode() then
                     local pos = ply:GetPos()
                     ply:Kill()
-
+            
                     timer.Simple(0.1, function()
                         if not IsValid(self) then return end
+            
+                        local treeModel = nil
+                        local exposureTime = ply.SCP407Time or 0
+            
+                        if exposureTime > 250 then
+                            treeModel = "models/props/de_inferno/bushgreenbig.mdl"
+                        elseif exposureTime >= 180 then
+                            treeModel = "models/props/de_inferno/bushsmall.mdl"
+                        end
+            
+                        if not treeModel then return end
+            
                         local tree = ents.Create("prop_physics")
                         if not IsValid(tree) then return end
-                        tree:SetModel("models/props/de_inferno/bushgreenbig.mdl")
+            
+                        tree:SetModel(treeModel)
                         tree:SetPos(pos)
                         tree:SetAngles(Angle(0, math.random(0, 360), 0))
                         tree:Spawn()
-
-                        if tree:GetPhysicsObject():IsValid() then
-                            tree:GetPhysicsObject():EnableMotion(false)
+            
+                        local phys = tree:GetPhysicsObject()
+                        if IsValid(phys) then
+                            phys:EnableMotion(false)
                         end
-
+            
                         timer.Simple(180, function()
                             if IsValid(tree) then
                                 tree:Remove()
@@ -376,7 +394,7 @@ function ENT:HandleAuraEffects()
                 self:RemovePlayerFromEffect(ply)
             end
 
-            -- Modellaenderung ab 180 Sekunden
+            -- Modelländerung ab 180 Sekunden
             if data.timeAffected >= 180 and not ply.SCP407ModelChanged then
                 ply:SetModel("models/player/zombie_classic.mdl")
                 ply.SCP407ModelChanged = true
@@ -388,7 +406,7 @@ function ENT:HandleAuraEffects()
             end
 
         else
-            -- Spieler ausserhalb der Range Zeit stop
+            -- Spieler ist draußen -> Zeit einfrieren
             if data.wasInRange then
                 data.timeAffected = now - data.baseTime
                 data.wasInRange = false
@@ -411,26 +429,52 @@ function ENT:OnRemove()
     timer.Remove("scp407_thinker_" .. self:EntIndex())
 end
 
-hook.Add("PlayerDeath", "SCP407_ResetOnDeath", function(ply)
-    net.Start("scp407_resetEffects")
-        net.WriteEntity(ply)
-    net.Broadcast()
+hook.Add("PlayerDeath", "SCP407_SpawnTreeOnDeath", function(ply)
+    if not IsValid(ply) then return end
 
-    if ply.SCP407OriginalModel then
-        ply:SetModel(ply.SCP407OriginalModel)
-    end
+    local exposureTime = ply.SCP407Time or 0  -- Hier direkt speichern bevor irgendwas anderes passiert!
 
-    ply.SCP407Time = 0
-    ply.SCP407LastTime = 0
-    ply.SCP407Killed = nil
-    ply.SCP407ModelChanged = nil
+    if exposureTime < 180 then return end -- Unter 180s kein Busch.
 
-    for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
-        if ent:IsValid() and ent.BaumifiziertePlayer and ent.BaumifiziertePlayer[ply] then
-            ent:RemovePlayerFromEffect(ply)
+    local pos = ply:GetPos()
+
+    timer.Simple(0.1, function()
+        if not IsValid(ply) then return end
+
+        local treeModel
+
+        if exposureTime > 250 then
+            treeModel = "models/props/de_inferno/bushgreenbig.mdl" -- Großer Busch
+        else
+            treeModel = "models/props/de_inferno/bushsmall.mdl" -- Kleiner Busch
         end
-    end
+
+        if not treeModel then return end
+
+        local tree = ents.Create("prop_physics")
+        if not IsValid(tree) then return end
+
+        tree:SetModel(treeModel)
+        tree:SetPos(pos)
+        tree:SetAngles(Angle(0, math.random(0, 360), 0))
+        tree:Spawn()
+
+        local phys = tree:GetPhysicsObject()
+        if IsValid(phys) then
+            phys:EnableMotion(false)
+        end
+
+        -- Baum verschwindet nach 2 Minuten
+        timer.Simple(120, function()
+            if IsValid(tree) then
+                tree:Remove()
+            end
+        end)
+    end)
 end)
+
+
+
 
 hook.Add("PlayerSpawn", "SCP407_ResetOnSpawn", function(ply)
     net.Start("scp407_resetEffects")
