@@ -110,6 +110,7 @@ end
 
 --Diese Funktion ändert das Model
 --Bei jeder gerade Nutzung wird das Model einfach auf das originale Model geändert, ansonsten wird aus einer zufälligen Auswahl an festgelegen Models eines genommen
+--Ob es sinnig ist auf das originale Model zurückzugehen bin ich unschlüssig, aber das lässt sich auch recht einfach ändern
 --Die möglichen Models finden sich in model_table.lua unter "models"
 local function modelChange(ply)
     local originalModel113 = ply.originalModel113
@@ -164,6 +165,7 @@ end
 --Hier wird die Aktivierung des SCPs gestartet
 --Es können ein paar Variablen zur einfach Anpassung angelegt werden
 function ENT:Activate113(ply)
+    print(ply:Nick() .. "(" .. ply:SteamID64() .. ")" .. " hat SCP-113 um " .. CurTime() .. " benutzt.")
     local threshhold = 4                --Dient dazu festzulegen wie oft man das SCP nutzen kann, bevor man zum Zombie wird. Threshhold + 1 ist die Nutzung die den Spieler zum Zombie macht.
     local transformationCD = 60         --Dient dazu festzulegen nach welcher Zeit der Schadenseffekt der Transformation einsetzt und damit die endgültige Transformation beginnt.
     local modelChangeCD = 82            --Dient dazu festzulegen nach welcher Zeit das Model tatsächlich gewechselt wird.
@@ -245,10 +247,11 @@ end
 
 --Kleiner CleanUp sollte das SCP aus irgendeinem Grund entfernt werden
 function ENT:OnRemove()
-    abortAllTimer()
     if IsValid(self.currentUser) then
+        abortAllTimer(self.currentUser)
         net.Start("EndBlurAndShake")
         net.Send(self.currentUser)
+        self.currentUser = nil
     end
 end
 
