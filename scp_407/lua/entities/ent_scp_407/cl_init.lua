@@ -135,9 +135,9 @@ hook.Add("RenderScreenspaceEffects", "SCP407_ShowAuraEffect", function()
     end
 
     DrawColorModify({
-        ["$pp_colour_addg"] = strength * 0.15,
+        ["$pp_colour_addg"] = strength * 0.25,
         ["$pp_colour_contrast"] = 1 + strength * 0.1,
-        ["$pp_colour_colour"] = 1 - strength * 0.15,
+        ["$pp_colour_colour"] = 1 - strength * 0.3,
         ["$pp_colour_mulg"] = strength * 0.6
     })
 
