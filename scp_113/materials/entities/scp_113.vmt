@@ -1,5 +1,5 @@
 "VertexLitGeneric"
 {
-    "$basetexture" "entities/scp_407"
+    "$basetexture" "entities/scp_113"
     "$translucent" 1
 }
