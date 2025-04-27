@@ -10,9 +10,9 @@ local netStrings = {
     "scp407_playSound",
     "scp407_updateTime",
     "scp407_resetEffects",
-    "scp407_syncTime",
     "scp407_changeModel",
-    "scp407_updateStatus"
+    "scp407_updateStatus",
+    "scp407_musicState"
 }
 
 for _, id in ipairs(netStrings) do
@@ -25,6 +25,8 @@ function ENT:Initialize()
     self:SetSolid(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetUseType(CONTINUOUS_USE)
+    self:SyncMusicStatus()
+
 
 local phys = self:GetPhysicsObject()
 if not IsValid(phys) then
@@ -39,7 +41,7 @@ phys:Wake()
 self.BaumifiziertePlayer = {}
 self.InputBuffer = {}
 self.IsActive = false 
-self.Radius = 300
+self.Radius = 500
 self.LoopLength = 136
 self.Activator = nil
 
@@ -87,6 +89,18 @@ function ENT:Think()
     return true
 end
 
+function ENT:SyncMusicStatus(ply)
+    net.Start("scp407_musicState")
+        net.WriteEntity(self)
+        net.WriteBool(self.IsActive)
+    if ply then
+        net.Send(ply)
+    else
+        net.Broadcast()
+    end
+end
+
+
 function ENT:IsPlayerInRange(ply)
     return ply:GetPos():DistToSqr(self:GetPos()) <= (self.Radius * self.Radius)
 end
@@ -97,6 +111,8 @@ function ENT:ActivateSCP(ply)
     self.Activator = ply
     self:SetActiveUserCount(1)
     self:SyncStatusToClients()
+    self:SyncMusicStatus()
+
 
     print("[SCP-407] Aktiviert von " .. ply:Nick())
 
@@ -126,6 +142,7 @@ function ENT:DeactivateSCP(ply)
     self.Activator = nil
     self:SetActiveUserCount(0)
     self:SyncStatusToClients()
+    self:SyncMusicStatus()
 
     print("[SCP-407] Deaktiviert von " .. ply:Nick())
 
@@ -329,23 +346,22 @@ function ENT:HandleAuraEffects()
         -- Nur wenn Spieler in Reichweite und SCP aktiv ist
         if inRange then
             if not data.wasInRange then
-                -- Spieler war vorher draußen, jetzt wieder drin -> Zeitsystem resynchronisieren
+                -- Spieler war vorher draußen, jetzt wieder drin  Zeit resync
                 data.baseTime = now - (data.timeAffected or 0)
                 data.wasInRange = true
             end
 
-            -- Aktualisiere aktive Zeit
             data.timeAffected = now - data.baseTime
             ply.SCP407Time = data.timeAffected
 
-            -- Schicke Zeitupdate an Client
+            -- Zeitupdaye an Client senden
             net.Start("scp407_updateTime")
                 net.WriteEntity(ply)
                 net.WriteFloat(data.timeAffected)
                 net.WriteBool(true)
             net.Send(ply)
 
-            -- Effekte basierend auf Zeit
+            -- Effekte 
             if data.timeAffected < 60 then
                 ply:SetHealth(math.min(ply:GetMaxHealth(), ply:Health() + 1))
             elseif data.timeAffected >= 180 and data.timeAffected < 300 then
@@ -394,7 +410,7 @@ function ENT:HandleAuraEffects()
                 self:RemovePlayerFromEffect(ply)
             end
 
-            -- Modelländerung ab 180 Sekunden
+            -- Modellaenderung ab 180 Sekunden
             if data.timeAffected >= 180 and not ply.SCP407ModelChanged then
                 ply:SetModel("models/player/zombie_classic.mdl")
                 ply.SCP407ModelChanged = true
@@ -406,7 +422,7 @@ function ENT:HandleAuraEffects()
             end
 
         else
-            -- Spieler ist draußen -> Zeit einfrieren
+            -- Spieler ist ausserhalb der range = Zeit stop
             if data.wasInRange then
                 data.timeAffected = now - data.baseTime
                 data.wasInRange = false
@@ -432,7 +448,7 @@ end
 hook.Add("PlayerDeath", "SCP407_SpawnTreeOnDeath", function(ply)
     if not IsValid(ply) then return end
 
-    local exposureTime = ply.SCP407Time or 0  -- Hier direkt speichern bevor irgendwas anderes passiert!
+    local exposureTime = ply.SCP407Time or 0 
 
     if exposureTime < 180 then return end -- Unter 180s kein Busch.
 
@@ -444,7 +460,7 @@ hook.Add("PlayerDeath", "SCP407_SpawnTreeOnDeath", function(ply)
         local treeModel
 
         if exposureTime > 250 then
-            treeModel = "models/props_foliage/shrub_01a.mdl" -- Großer Busch
+            treeModel = "models/props_foliage/shrub_01a.mdl" -- Grosser Busch
         else
             treeModel = "models/perftest/grass_tuft_001.mdl" -- Kleiner Busch
         end
@@ -519,4 +535,16 @@ hook.Add("PlayerDisconnected", "SCP407_CleanupOnDisconnect", function(ply)
             ent:RemovePlayerFromEffect(ply)
         end
     end
+end)
+
+hook.Add("PlayerInitialSpawn", "SCP407_SyncMusicOnJoin", function(ply)
+    timer.Simple(5, function()
+        if not IsValid(ply) then return end
+
+        for _, ent in ipairs(ents.FindByClass("ent_scp_407")) do
+            if ent:IsValid() then
+                ent:SyncMusicStatus(ply)
+            end
+        end
+    end)
 end)
