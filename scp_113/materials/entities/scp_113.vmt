@@ -1,6 +1,6 @@
 "UnlitGeneric"
 {
-	"$basetexture"	"entities/ent_scp_113"
+	"$basetexture"	"entities/scp_113"
 	"$translucent" "1"
 	"$ignorez" "1"
 	"$vertexcolor" "1"
