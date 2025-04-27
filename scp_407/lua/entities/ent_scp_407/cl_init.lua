@@ -8,7 +8,6 @@ sound.Add({
     sound = "scp/407_loop.mp3"
 })
 
-debugData = {}
 
 local auraTable = {}
 local soundMap = {}
@@ -60,7 +59,7 @@ net.Receive("scp407_playSound", function()
         local playerPos = LocalPlayer():GetPos()
         local entPos = ent:GetPos()
         local dist = playerPos:Distance(entPos)
-        local maxDist = 300
+        local maxDist = 500
         local adjustedVol = 0
 
         if dist <= maxDist then
@@ -76,13 +75,22 @@ net.Receive("scp407_playSound", function()
     end
 end)
 
+net.Receive("scp407_musicState", function()
+    local ent = net.ReadEntity()
+    if not (ent and ent:IsValid()) then return end
+
+    local isActive = net.ReadBool()
+    isSoundOn[ent] = isActive
+end)
+
+
 hook.Add("Think", "SCP407_AdjustVolumeThink", function()
     for ent, snd in pairs(soundMap) do
         if ent and ent:IsValid() and snd and snd:IsPlaying() then
             local pPos = LocalPlayer():GetPos()
             local ePos = ent:GetPos()
             local dist = pPos:Distance(ePos)
-            local maxDist = 300
+            local maxDist = 500
             local volume = 0
 
             if dist <= maxDist then
@@ -153,16 +161,10 @@ function ENT:Draw()
     ang:RotateAroundAxis(ang:Right(), 90)
     ang:RotateAroundAxis(ang:Up(), -90)
 
-    local state = usageData[self] or { active = 0, maxUsers = 0 }
-    local text, clr = "Verfügbar", Color(68, 255, 68)
+    local musicActive = isSoundOn[self] or false
 
-    if state.active >= state.maxUsers then
-        text, clr = "Spielt Musik", Color(255, 230, 0)
-    elseif state.active == 2 then 
-        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(255, 162, 0) -- Noch aus alter version
-    elseif state.active == 1 then
-        text, clr = "Nutzbar (" .. state.active .. "/" .. state.maxUsers .. ")", Color(0, 223, 0) -- Dasselbe hier
-    end
+    local text = musicActive and "Spielt Musik" or "Verfügbar"
+    local clr = musicActive and Color(255, 230, 0) or Color(68, 255, 68)
 
     cam.Start3D2D(pos, ang, 0.1)
         draw.SimpleText("SCP-407", "DermaLarge", 0, 0, color_white, TEXT_ALIGN_CENTER)
@@ -171,6 +173,8 @@ function ENT:Draw()
         draw.SimpleText("SHIFT + E zum Tragen", "DermaDefault", 0, 60, color_white, TEXT_ALIGN_CENTER)
     cam.End3D2D()
 end
+
+
 
 function ENT:OnRemove()
     if soundMap[self] then
