@@ -1,4 +1,4 @@
-list.Set("SpawnableEntities", "ent_scp_113", {
+list.Set("SpawnableEntities", "scp_113", {
     PrintName = "SCP-113",
     ClassName = "scp_113",
     Category = "SCP",
