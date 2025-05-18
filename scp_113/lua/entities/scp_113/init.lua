@@ -274,7 +274,7 @@ function ENT:OnRemove()
 end
 
 hook.Add("PlayerDeath", "ResetCounter", function(ply)
-    if ply.carries113 then
+    if ply.carries113 and IsValid(ply.carries113) then
         if ply.useCount113 != nil then
             ply.carries113:ResetUseCount(ply)
         end
@@ -283,7 +283,7 @@ hook.Add("PlayerDeath", "ResetCounter", function(ply)
 end)
 
 hook.Add("OnPlayerChangedTeam", "SwitchJobReset", function(ply)
-    if ply.carries113 then
+    if ply.carries113 and IsValid(ply.carries113) then
         if ply.useCount113 != nil then
             ply.carries113:ResetUseCount(ply)
         end
@@ -292,7 +292,7 @@ hook.Add("OnPlayerChangedTeam", "SwitchJobReset", function(ply)
 end)
 
 hook.Add("PlayerDisconnected", "DisconnectReset", function(ply)
-    if ply.carries113 then
+    if ply.carries113 and IsValid(ply.carries113) then
         if ply.useCount113 != nil then
             ply.carries113:ResetUseCount(ply)
         end
