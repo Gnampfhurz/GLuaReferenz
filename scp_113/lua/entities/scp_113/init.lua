@@ -3,8 +3,8 @@ AddCSLuaFile("cl_init.lua")
 
 include("shared.lua")
 
-util.AddNetworkString("Transformation")
-util.AddNetworkString("EndBlurAndShake")
+util.AddNetworkString("SCP113_Transformation")
+util.AddNetworkString("SCP113_EndBlurAndShake")
 
 function ENT:Initialize()
     self:SetModel("models/props_junk/watermelon01.mdl")
@@ -39,7 +39,6 @@ function ENT:Initialize()
     self.timers = {
         "TransformationDamage",
         "StartingBurnDamage",
-        "PlayerDying",
         "Drop113",
         "StartTransformationDamage",
         "ModelChange"
@@ -88,9 +87,9 @@ function ENT:DropStone(ply, death)
     self:SetNotSolid(false)
     if IsValid(ply) then
         ply.carries113 = nil 
-        self.currentUser = {}
+        self.currentUser = nil
         if death then
-            self:SetPos(ply:GetPos() + Vector(0,0,50))
+            self:SetPos(ply:GetPos() + Vector(0,0,15))
         end 
     end
     local phys = self:GetPhysicsObject()
@@ -209,7 +208,7 @@ function ENT:Activate113(ply)
     local startModelChange = "ModelChange" .. ply:EntIndex()
     self.currentUser = ply
     self:CalculateUses(ply)
-    net.Start("Transformation")
+    net.Start("SCP113_Transformation")
     net.Send(ply)
     self:ThisStoneIsOnFire(ply)
     self:StoneIsCarried(ply)
@@ -235,6 +234,7 @@ function ENT:Use(ply, caller)
     if self:CheckForProtection(ply) then
         if ply:KeyDown(IN_SPEED) then
             ply:PickupObject(self)
+            return
         else
             return 
         end
@@ -251,15 +251,20 @@ function ENT:AbortAllTimers(ply)
     local plyIndex = ply:EntIndex()
     for _, timerToEnd in ipairs(self.timers) do
         if timer.Exists(timerToEnd .. plyIndex) then
+            print(timerToEnd .. plyIndex)
             timer.Remove(timerToEnd .. plyIndex)
         end
     end
+    if timer.Exists("PlayerDying" .. ply:EntIndex()) then
+        timer.Remove("PlayerDying" .. ply:EntIndex())
+    end
 end
 
-function ENT:ResetUseCount(ply)
+local function resetUseCount(ply)
     if !IsValid(ply) or !ply:IsPlayer() then return end
     ply.useCount113 = nil 
-    net.Start("EndBlurAndShake")
+    ply.originalModel113 = nil
+    net.Start("SCP113_EndBlurAndShake")
     net.Send(ply)
 end
 
@@ -267,35 +272,39 @@ function ENT:OnRemove()
     if self.currentUser and IsValid(self.currentUser) then
         self.AbortAllTimers(self.currentUser)
         self.ResetUseCount(self.currentUser)
-        net.Start("EndBlurAndShake")
-        net.Send(self.currentUser)
         self.currentUser = nil
     end
 end
 
 hook.Add("PlayerDeath", "ResetCounter", function(ply)
+    if !IsValid(ply) or !ply:IsPlayer() then return end
+    if ply.useCount113 != nil then
+        resetUseCount(ply)
+    end  
     if ply.carries113 and IsValid(ply.carries113) then
-        if ply.useCount113 != nil then
-            ply.carries113:ResetUseCount(ply)
-        end
-        ply.carries113:DropStone(ply, true)
+        ply.carries113:AbortAllTimers(ply)
+        ply.carries113:DropStone(ply, true)  
     end
 end)
 
 hook.Add("OnPlayerChangedTeam", "SwitchJobReset", function(ply)
+    if !IsValid(ply) or !ply:IsPlayer() then return end
+    if ply.useCount113 != nil then
+        resetUseCount(ply)
+    end  
     if ply.carries113 and IsValid(ply.carries113) then
-        if ply.useCount113 != nil then
-            ply.carries113:ResetUseCount(ply)
-        end
-        ply.carries113:DropStone(ply, false)
+        ply.carries113:AbortAllTimers(ply)
+        ply.carries113:DropStone(ply, false)  
     end
 end)
 
 hook.Add("PlayerDisconnected", "DisconnectReset", function(ply)
+    if !IsValid(ply) or !ply:IsPlayer() then return end
+    if ply.useCount113 != nil then
+        resetUseCount(ply)
+    end  
     if ply.carries113 and IsValid(ply.carries113) then
-        if ply.useCount113 != nil then
-            ply.carries113:ResetUseCount(ply)
-        end
-        ply.carries113:DropStone(ply, false)
+        ply.carries113:AbortAllTimers(ply)
+        ply.carries113:DropStone(ply, false)  
     end
 end)
