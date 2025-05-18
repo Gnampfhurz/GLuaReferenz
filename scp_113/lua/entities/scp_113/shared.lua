@@ -4,4 +4,3 @@ ENT.PrintName = "SCP-113"
 ENT.Author = "Gnampfhurz"
 ENT.Spawnable = true
 ENT.Category = "SCP"
-ENT.RenderGroup = RENDERGROUP_TRANSLUCENT

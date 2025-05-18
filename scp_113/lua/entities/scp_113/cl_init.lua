@@ -28,22 +28,19 @@ hook.Add("HUDPaint", "UseButtons", function()
 	end
 end)
 
-net.Receive("NormalTransformation", function()
-
+net.Receive("Transformation", function()
     local ply = LocalPlayer()
-	timer.Create("ScreenShake", 1, 81, function()
+    local timerName = "ScreenShake" .. ply:EntIndex()
+	timer.Create(timerName, 1, 81, function()
 		util.ScreenShake(ply:GetPos(), 6, 2, 1, 0)
 	end)
 	TriggerMotionBlur(82)
-	
 end)
 
 net.Receive("EndBlurAndShake", function()
-
 	local ply = LocalPlayer()
 	TriggerMotionBlur(-1)
-	if timer.Exists("ScreenShake") then
-		timer.Remove("ScreenShake")
+	if timer.Exists("ScreenShake" .. ply:EntIndex()) then
+		timer.Remove("ScreenShake" .. ply:EntIndex())
 	end
-
 end)
