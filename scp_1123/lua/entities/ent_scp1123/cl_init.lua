@@ -49,7 +49,7 @@ net.Receive("SCP1123_Jumpscare", function()
     end)
 end)
 
-function StartSCP1123Hallucination(duration)
+function StartSCP1123Hallucination(duration) 
     hallucinating = true
     hallucinationEnd = CurTime() + duration
     nextPuppetSpawn = CurTime() + math.Rand(2, 4)
@@ -279,7 +279,7 @@ function ENT:Draw()
         draw.SimpleText("E gedrückt halten zum Anfassen", "DermaDefault", 0, 42, color_white, TEXT_ALIGN_CENTER)
         draw.SimpleText("SHIFT + E zum Tragen", "DermaDefault", 0, 60, color_white, TEXT_ALIGN_CENTER)
     cam.End3D2D()
-end
+end 
 
 hook.Add("Think", "SCP1123_PuppetRotation", function()
     local ply = LocalPlayer()

@@ -10,7 +10,7 @@ function ENT:Initialize()
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
-    self:SetUseType(SIMPLE_USE)
+    self:SetUseType(SIMPLE_USE) 
 
     self.InputBuffer = {}
     self.ActiveCooldowns = {}
@@ -43,10 +43,10 @@ function ENT:Use(ply)
     end
 end
 
-function ENT:Think()
+function ENT:Think() 
     local hasCarrier = self:HasCarrier()
 
-    if hasCarrier then
+    if hasCarrier then 
         self:ValidateCarrier()
         if !self:IsPlayerHolding() then
             self:RemoveCarrier()
@@ -71,7 +71,7 @@ function ENT:Think()
             end
         end
 
-        if changed and !next(self.InputBuffer) then
+        if changed and !next(self.InputBuffer) then 
             self.InputBuffer = {}
         end
     end
