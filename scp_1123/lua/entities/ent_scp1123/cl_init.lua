@@ -5,6 +5,7 @@ local hallucinationEnd = 0
 local nextPuppetSpawn = 0
 local activePuppets = {}
 local jumpscareActive = false
+local jumpscareEntity = nil
 local maxPuppets = 10
 local whisperChannel = nil
 local heartbeatChannel = nil
@@ -12,6 +13,7 @@ local hallucinationProgress = 0
 local jumpscareMat = Material("scp1123/jumpscare1.png")
 local vignetteMat = Material("scp1123/vignette.png")
 local jumpscareAlpha = 0
+local jumpscareActive = false
 
 local puppetModels = {
     "models/props_c17/doll01.mdl",
@@ -49,7 +51,8 @@ net.Receive("SCP1123_Jumpscare", function()
     end)
 end)
 
-function StartSCP1123Hallucination(duration) 
+
+function StartSCP1123Hallucination(duration)
     hallucinating = true
     hallucinationEnd = CurTime() + duration
     nextPuppetSpawn = CurTime() + math.Rand(2, 4)
@@ -118,6 +121,7 @@ hook.Add("HUDPaint", "SCP1123_Vignette", function()
     surface.SetMaterial(vignetteMat)
     surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
 end)
+
 
 function SpawnHallucinationPuppet()
     local ply = LocalPlayer()
@@ -207,16 +211,21 @@ function SpawnHallucinationPuppet()
     table.insert(activePuppets, model)
 end
 
+
 function CleanupSCP1123Hallucination()
     for _, puppet in ipairs(activePuppets) do
         if IsValid(puppet) then puppet:Remove() end
     end
     activePuppets = {}
 
+    if IsValid(jumpscareEntity) then
+        jumpscareEntity:Remove()
+    end
+    jumpscareEntity = nil
     jumpscareActive = false
 
-    if IsValid(whisperChannel) then whisperChannel:Stop() end
-    if IsValid(heartbeatChannel) then heartbeatChannel:Stop() end
+    if IsValid(whisperChannel) and whisperChannel.Stop then whisperChannel:Stop() end
+    if IsValid(heartbeatChannel) and heartbeatChannel.Stop then heartbeatChannel:Stop() end
 
     whisperChannel = nil
     heartbeatChannel = nil
@@ -237,6 +246,7 @@ hook.Add("Think", "SCP1123_HallucinationThink", function()
         nextPuppetSpawn = ct + math.Rand(2, 4)
     end
 end)
+
 
 hook.Add("RenderScreenspaceEffects", "SCP1123_ScreenEffect", function()
     if hallucinating then
@@ -274,12 +284,15 @@ function ENT:Draw()
     ang:RotateAroundAxis(ang:Right(), 90)
     ang:RotateAroundAxis(ang:Up(), -90)
 
+    local floatOffset = math.sin(RealTime() * 2) * 20
+
     cam.Start3D2D(pos, ang, 0.1)
-        draw.SimpleText("SCP-1123", "DermaLarge", 0, 0, color_white, TEXT_ALIGN_CENTER)
-        draw.SimpleText("E gedrückt halten zum Anfassen", "DermaDefault", 0, 42, color_white, TEXT_ALIGN_CENTER)
-        draw.SimpleText("SHIFT + E zum Tragen", "DermaDefault", 0, 60, color_white, TEXT_ALIGN_CENTER)
+        draw.SimpleText("SCP-1123", "DermaLarge", 0, 0 + floatOffset, color_white, TEXT_ALIGN_CENTER)
+        draw.SimpleText("E gedrückt halten zum Anfassen", "DermaDefault", 0, 42 + floatOffset, color_white, TEXT_ALIGN_CENTER)
+        draw.SimpleText("SHIFT + E zum Tragen", "DermaDefault", 0, 60 + floatOffset, color_white, TEXT_ALIGN_CENTER)
     cam.End3D2D()
-end 
+end
+
 
 hook.Add("Think", "SCP1123_PuppetRotation", function()
     local ply = LocalPlayer()
@@ -295,5 +308,4 @@ hook.Add("Think", "SCP1123_PuppetRotation", function()
         end
     end
 end)
-
 
