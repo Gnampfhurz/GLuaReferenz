@@ -10,7 +10,7 @@ function ENT:Initialize()
     self:PhysicsInit(SOLID_VPHYSICS)
     self:SetMoveType(MOVETYPE_VPHYSICS)
     self:SetSolid(SOLID_VPHYSICS)
-    self:SetUseType(SIMPLE_USE) 
+    self:SetUseType(SIMPLE_USE)
 
     self.InputBuffer = {}
     self.ActiveCooldowns = {}
@@ -19,17 +19,56 @@ function ENT:Initialize()
     self.CarrierSteamID = nil
     self.CarrierPlayer = nil
 
+    self.MAX_CARRY_DISTANCE = 200
+    self.HOLD_TIME_REQUIRED = 2
+    self.THINK_INTERVAL = 0.5
+
     local phys = self:GetPhysicsObject()
     if IsValid(phys) then phys:Wake() end
 end
 
+function ENT:IsCarriedBy(ply)
+    return IsValid(ply) and self.CarrierSteamID == ply:SteamID()
+end
+
+function ENT:GetValidCarrier()
+    if !self.CarrierSteamID then return nil end
+    local ply = self.CarrierPlayer
+
+    if !IsValid(ply) or ply:SteamID() != self.CarrierSteamID then
+        for p in player.Iterator() do
+            if p:SteamID() == self.CarrierSteamID then
+                self.CarrierPlayer = p
+                ply = p
+                break
+            end
+        end
+    end
+
+    if IsValid(ply) and ply:Alive() and ply:GetPos():DistToSqr(self:GetPos()) <= self.MAX_CARRY_DISTANCE^2 then
+        return ply
+    end
+
+    self:RemoveCarrier()
+    return nil
+end
+
+function ENT:SetCarrier(ply)
+    self.CarrierSteamID = ply:SteamID()
+    self.CarrierPlayer = ply
+end
+
+function ENT:RemoveCarrier()
+    self.CarrierSteamID = nil
+    self.CarrierPlayer = nil
+end
+
 function ENT:Use(ply)
-    if !IsValid(ply) or !ply:IsPlayer() then return end
+    if !IsValid(ply) then return end
 
     if ply:KeyDown(IN_SPEED) and !self:IsPlayerHolding() then
         ply:PickupObject(self)
-        self.CarrierSteamID = ply:SteamID()
-        self.CarrierPlayer = ply
+        self:SetCarrier(ply)
         return
     end
 
@@ -38,96 +77,84 @@ function ENT:Use(ply)
         return
     end
 
-    if !self:HasCarrier() then
-        self.InputBuffer[ply] = CurTime()
+    if !self.CarrierSteamID then
+        self.InputBuffer[ply:SteamID()] = CurTime()
     end
 end
 
-function ENT:Think() 
-    local hasCarrier = self:HasCarrier()
+function ENT:Think()
+    local carrier = self:GetValidCarrier()
 
-    if hasCarrier then 
-        self:ValidateCarrier()
+    if carrier then
         if !self:IsPlayerHolding() then
             self:RemoveCarrier()
             return
         end
 
-        self:CheckPassiveEffects()
+        self:CheckPassiveEffects(carrier)
     else
-        local now = CurTime()
-        local changed = false
-
-        for ply, startTime in pairs(self.InputBuffer) do
-            if !IsValid(ply) or !ply:KeyDown(IN_USE) then
-                self.InputBuffer[ply] = nil
-                changed = true
-            elseif now - startTime >= 2 then
-                if !self:IsOnCooldown(ply) then
-                    self:StartHallucination(ply)
-                end
-                self.InputBuffer[ply] = nil
-                changed = true
-            end
-        end
-
-        if changed and !next(self.InputBuffer) then 
-            self.InputBuffer = {}
-        end
+        self:ProcessInputBuffer()
     end
 
-    if hasCarrier or next(self.InputBuffer) != nil then
-        self:NextThink(CurTime() + 1)
+    if self.CarrierSteamID or next(self.InputBuffer) then
+        self:NextThink(CurTime() + self.THINK_INTERVAL)
         return true
     end
 end
 
--- Sorry could be one function but I like it this way
-function ENT:HasCarrier()
-    return self.CarrierSteamID != nil
-end
-
-function ENT:IsCarriedBy(ply)
-    return self.CarrierSteamID == ply:SteamID()
-end
-
-function ENT:GetCarrier()
-    return self.CarrierPlayer
-end
-
-function ENT:RemoveCarrier()
-    self.CarrierSteamID = nil
-    self.CarrierPlayer = nil
-end
-
-
-function ENT:ValidateCarrier()
-    if !self:HasCarrier() then return end
-    local ply = self.CarrierPlayer
-    if !IsValid(ply) or !ply:IsPlayer() then
-        for player in player.Iterator() do
-            if player:SteamID() == self.CarrierSteamID then
-                self.CarrierPlayer = player
-                break
+function ENT:ProcessInputBuffer()
+    local now = CurTime()
+    for sid, startTime in pairs(self.InputBuffer) do
+        local ply = self:GetPlayerBySteamID(sid)
+        if !IsValid(ply) or !ply:KeyDown(IN_USE) then
+            self.InputBuffer[sid] = nil
+        elseif now - startTime >= self.HOLD_TIME_REQUIRED then
+            if !self:IsOnCooldown(ply) then
+                self:StartHallucination(ply)
             end
+            self.InputBuffer[sid] = nil
         end
-        ply = self.CarrierPlayer
-        if !IsValid(ply) then
-            self:RemoveCarrier()
-            return
-        end
-    end
-
-    if !ply:Alive() or ply:GetPos():DistToSqr(self:GetPos()) > 200 * 200 then
-        self:RemoveCarrier()
     end
 end
 
+function ENT:GetPlayerBySteamID(sid)
+    for _, ply in ipairs(player.GetAll()) do
+        if ply:SteamID() == sid then
+            return ply
+        end
+    end
+    return nil
+end
 
 function ENT:IsOnCooldown(ply)
-    return self.ActiveCooldowns[ply] and self.ActiveCooldowns[ply] > CurTime()
+    local sid = ply:SteamID()
+    local cd = self.ActiveCooldowns[sid]
+    if cd and cd > CurTime() then
+        return true
+    elseif cd then
+        self.ActiveCooldowns[sid] = nil
+    end
+    return false
 end
 
+function ENT:SetCooldown(ply, seconds)
+    self.ActiveCooldowns[ply:SteamID()] = CurTime() + seconds
+end
+
+function ENT:IsOnPassiveCooldown(ply)
+    local sid = ply:SteamID()
+    local cd = self.PassiveCooldowns[sid]
+    if cd and cd > CurTime() then
+        return true
+    elseif cd then
+        self.PassiveCooldowns[sid] = nil
+    end
+    return false
+end
+
+function ENT:SetPassiveCooldown(ply, seconds)
+    self.PassiveCooldowns[ply:SteamID()] = CurTime() + seconds
+end
 
 function ENT:StartHallucination(ply)
     local duration = math.random(SCP1123_Config.min_duration, SCP1123_Config.max_duration)
@@ -136,14 +163,30 @@ function ENT:StartHallucination(ply)
         net.WriteUInt(duration, 6)
     net.Send(ply)
 
-    timer.Simple(duration, function()
+    local timerName = "scp1123_timer_active_" .. self:EntIndex() .. "_" .. ply:SteamID()
+    timer.Create(timerName, duration, 1, function()
         if !IsValid(ply) or !IsValid(self) then return end
         self:ApplyHallucinationDamage(ply, duration)
     end)
 
-    self.ActiveCooldowns[ply] = CurTime() + SCP1123_Config.cooldown_active
+    self:SetCooldown(ply, SCP1123_Config.cooldown_active)
 end
 
+function ENT:TriggerPassiveEffect(ply)
+    local duration = math.random(SCP1123_Config.min_duration, SCP1123_Config.max_duration)
+
+    net.Start("SCP1123_TriggerPassive")
+        net.WriteUInt(duration, 6)
+    net.Send(ply)
+
+    local timerName = "scp1123_timer_passive_" .. self:EntIndex() .. "_" .. ply:SteamID()
+    timer.Create(timerName, duration, 1, function()
+        if !IsValid(ply) or !IsValid(self) then return end
+        self:ApplyHallucinationDamage(ply, duration)
+    end)
+
+    self:SetPassiveCooldown(ply, SCP1123_Config.cooldown_passive)
+end
 
 function ENT:ApplyHallucinationDamage(ply, duration)
     if !IsValid(ply) then return end
@@ -159,77 +202,69 @@ function ENT:ApplyHallucinationDamage(ply, duration)
 
     timer.Simple(0.1, function()
         if !IsValid(ply) then return end
-
         if willDie then
             ply:Kill()
             if self:IsCarriedBy(ply) then
                 self:RemoveCarrier()
             end
         else
-            local damageInfo = DamageInfo()
-            damageInfo:SetDamage(dmg)
-            damageInfo:SetAttacker(game.GetWorld())
-            damageInfo:SetDamageType(DMG_GENERIC)
-            ply:TakeDamageInfo(damageInfo)
+            local info = DamageInfo()
+            info:SetDamage(dmg)
+            info:SetAttacker(game.GetWorld())
+            info:SetDamageType(DMG_GENERIC)
+            ply:TakeDamageInfo(info)
         end
     end)
 end
 
-
-function ENT:CheckPassiveEffects()
-    if !self:HasCarrier() then return end
-
-    local carrier = self:GetCarrier()
-    if !IsValid(carrier) or !carrier:Alive() then
-        self:RemoveCarrier()
-        return
-    end
-
-    if self.PassiveCooldowns[carrier] and self.PassiveCooldowns[carrier] > CurTime() then
-        return
-    end
+function ENT:CheckPassiveEffects(ply)
+    if self:IsOnPassiveCooldown(ply) then return end
 
     if math.Rand(0, 1) < SCP1123_Config.carrier_chance then
-        self:TriggerPassiveEffect(carrier)
-        self.PassiveCooldowns[carrier] = CurTime() + SCP1123_Config.cooldown_passive
+        self:TriggerPassiveEffect(ply)
+    end
+end
+
+function ENT:CleanupPlayer(ply)
+    local sid = ply:SteamID()
+    self.InputBuffer[sid] = nil
+    self.ActiveCooldowns[sid] = nil
+    self.PassiveCooldowns[sid] = nil
+
+    if self:IsCarriedBy(ply) then
+        self:RemoveCarrier()
+    end
+
+    for _, prefix in ipairs({"active", "passive"}) do
+        local tname = "scp1123_timer_" .. prefix .. "_" .. self:EntIndex() .. "_" .. sid
+        if timer.Exists(tname) then
+            timer.Remove(tname)
+        end
+    end
+end
+
+function ENT:OnRemove()
+    for sid in pairs(self.ActiveCooldowns) do
+        local a = "scp1123_timer_active_" .. self:EntIndex() .. "_" .. sid
+        local b = "scp1123_timer_passive_" .. self:EntIndex() .. "_" .. sid
+        if timer.Exists(a) then timer.Remove(a) end
+        if timer.Exists(b) then timer.Remove(b) end
     end
 end
 
 
-function ENT:TriggerPassiveEffect(ply)
-    local duration = math.random(SCP1123_Config.min_duration, SCP1123_Config.max_duration)
-
-    net.Start("SCP1123_TriggerPassive")
-        net.WriteUInt(duration, 6)
-    net.Send(ply)
-
-    timer.Simple(duration, function()
-        if !IsValid(ply) or !IsValid(self) then return end
-        self:ApplyHallucinationDamage(ply, duration)
-    end)
-end
-
-
-hook.Add("PlayerDisconnected", "SCP1123_PlayerDisconnect", function(ply) --
+hook.Add("PlayerDisconnected", "SCP1123_Disconnect", function(ply)
     for _, ent in ipairs(ents.FindByClass("scp_1123")) do
-        if IsValid(ent) and ent:IsCarriedBy(ply) then
-            ent:RemoveCarrier()
+        if IsValid(ent) then
+            ent:CleanupPlayer(ply)
         end
     end
 end)
 
-
-hook.Add("OnPlayerChangedTeam", "SCP1123_ResetCooldownsOnJobChange", function(ply, oldTeam, newTeam)
-    local sid = ply:SteamID()
-
+hook.Add("OnPlayerChangedTeam", "SCP1123_TeamChange", function(ply)
     for _, ent in ipairs(ents.FindByClass("scp_1123")) do
         if IsValid(ent) then
-            ent.ActiveCooldowns[sid] = nil
-            ent.PassiveCooldowns[sid] = nil
-
-            if ent:IsCarriedBy(ply) then
-                ent:RemoveCarrier()
-            end
+            ent:CleanupPlayer(ply)
         end
     end
 end)
