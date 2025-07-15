@@ -9,7 +9,7 @@ ENT.Spawnable = true
 ENT.AdminSpawnable = true
 
 SCP1123_Config = {
-    min_duration = 5,
+    min_duration = 10,
     max_duration = 30,
     base_damage = 0.8,
     death_multiplier = 1.0,
