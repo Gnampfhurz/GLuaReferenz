@@ -100,6 +100,7 @@ function ENT:RemoveCarrier()
     self.CarrierPlayer = nil
 end
 
+
 function ENT:ValidateCarrier()
     if !self:HasCarrier() then return end
     local ply = self.CarrierPlayer
@@ -122,9 +123,11 @@ function ENT:ValidateCarrier()
     end
 end
 
+
 function ENT:IsOnCooldown(ply)
     return self.ActiveCooldowns[ply] and self.ActiveCooldowns[ply] > CurTime()
 end
+
 
 function ENT:StartHallucination(ply)
     local duration = math.random(SCP1123_Config.min_duration, SCP1123_Config.max_duration)
@@ -140,6 +143,7 @@ function ENT:StartHallucination(ply)
 
     self.ActiveCooldowns[ply] = CurTime() + SCP1123_Config.cooldown_active
 end
+
 
 function ENT:ApplyHallucinationDamage(ply, duration)
     if !IsValid(ply) then return end
@@ -191,6 +195,7 @@ function ENT:CheckPassiveEffects()
     end
 end
 
+
 function ENT:TriggerPassiveEffect(ply)
     local duration = math.random(SCP1123_Config.min_duration, SCP1123_Config.max_duration)
 
@@ -204,10 +209,27 @@ function ENT:TriggerPassiveEffect(ply)
     end)
 end
 
-hook.Add("PlayerDisconnected", "SCP1123_PlayerDisconnect", function(ply)
+
+hook.Add("PlayerDisconnected", "SCP1123_PlayerDisconnect", function(ply) --
     for _, ent in ipairs(ents.FindByClass("scp_1123")) do
         if IsValid(ent) and ent:IsCarriedBy(ply) then
             ent:RemoveCarrier()
+        end
+    end
+end)
+
+
+hook.Add("OnPlayerChangedTeam", "SCP1123_ResetCooldownsOnJobChange", function(ply, oldTeam, newTeam)
+    local sid = ply:SteamID()
+
+    for _, ent in ipairs(ents.FindByClass("scp_1123")) do
+        if IsValid(ent) then
+            ent.ActiveCooldowns[sid] = nil
+            ent.PassiveCooldowns[sid] = nil
+
+            if ent:IsCarriedBy(ply) then
+                ent:RemoveCarrier()
+            end
         end
     end
 end)
