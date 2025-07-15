@@ -6,7 +6,7 @@ ENT.PrintName = "SCP-1123"
 ENT.Author = "Paid"
 ENT.Category = "SCP"
 ENT.Spawnable = true
-ENT.AdminSpawnable = true
+--ENT.AdminSpawnable = true
 
 SCP1123_Config = {
     min_duration = 10,
