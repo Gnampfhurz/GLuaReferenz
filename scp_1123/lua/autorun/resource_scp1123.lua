@@ -1,1 +1,5 @@
 resource.AddFile("materials/scp1123/jumpscare1.png")
+resource.AddFile("materials/scp1123/vignette.png")
+resource,AddFile("sound/hallu1.wav")
+resource.AddFile("sound/hallu2.wav")
+resource.AddFile("sound/heartbeat.wav")

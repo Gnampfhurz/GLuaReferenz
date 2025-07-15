@@ -82,7 +82,7 @@ function ENT:Think()
     end
 end
 
-
+-- Sorry could be one function but I like it this way
 function ENT:HasCarrier()
     return self.CarrierSteamID != nil
 end
@@ -118,7 +118,7 @@ function ENT:ValidateCarrier()
         end
     end
 
-    if !ply:Alive() or ply:GetPos():DistToSqr(self:GetPos()) > 150 * 150 then
+    if !ply:Alive() or ply:GetPos():DistToSqr(self:GetPos()) > 200 * 200 then
         self:RemoveCarrier()
     end
 end
