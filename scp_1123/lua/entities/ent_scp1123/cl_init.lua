@@ -5,7 +5,6 @@ local hallucinationEnd = 0
 local nextPuppetSpawn = 0
 local activePuppets = {}
 local jumpscareActive = false
-local jumpscareEntity = nil
 local maxPuppets = 10
 local whisperChannel = nil
 local heartbeatChannel = nil
@@ -13,7 +12,6 @@ local hallucinationProgress = 0
 local jumpscareMat = Material("scp1123/jumpscare1.png")
 local vignetteMat = Material("scp1123/vignette.png")
 local jumpscareAlpha = 0
-local jumpscareActive = false
 
 local puppetModels = {
     "models/props_c17/doll01.mdl",
@@ -50,8 +48,6 @@ net.Receive("SCP1123_Jumpscare", function()
         TriggerJumpscare(duration)
     end)
 end)
-
-
 
 function StartSCP1123Hallucination(duration)
     hallucinating = true
@@ -122,8 +118,6 @@ hook.Add("HUDPaint", "SCP1123_Vignette", function()
     surface.SetMaterial(vignetteMat)
     surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
 end)
-
-
 
 function SpawnHallucinationPuppet()
     local ply = LocalPlayer()
@@ -213,22 +207,16 @@ function SpawnHallucinationPuppet()
     table.insert(activePuppets, model)
 end
 
-
-
 function CleanupSCP1123Hallucination()
     for _, puppet in ipairs(activePuppets) do
         if IsValid(puppet) then puppet:Remove() end
     end
     activePuppets = {}
 
-    if IsValid(jumpscareEntity) then
-        jumpscareEntity:Remove()
-    end
-    jumpscareEntity = nil
     jumpscareActive = false
 
-    if IsValid(whisperChannel) and whisperChannel.Stop then whisperChannel:Stop() end
-    if IsValid(heartbeatChannel) and heartbeatChannel.Stop then heartbeatChannel:Stop() end
+    if IsValid(whisperChannel) then whisperChannel:Stop() end
+    if IsValid(heartbeatChannel) then heartbeatChannel:Stop() end
 
     whisperChannel = nil
     heartbeatChannel = nil
@@ -249,7 +237,6 @@ hook.Add("Think", "SCP1123_HallucinationThink", function()
         nextPuppetSpawn = ct + math.Rand(2, 4)
     end
 end)
-
 
 hook.Add("RenderScreenspaceEffects", "SCP1123_ScreenEffect", function()
     if hallucinating then
@@ -308,4 +295,5 @@ hook.Add("Think", "SCP1123_PuppetRotation", function()
         end
     end
 end)
+
 
