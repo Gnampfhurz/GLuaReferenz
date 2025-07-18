@@ -78,7 +78,38 @@ function StartSCP1123Hallucination(duration)
             heartbeatChannel = channel
         end
     end)
+
+    timer.Create("SCP1123_HallucinationLogic", 0.25, 0, function()
+        if !hallucinating then timer.Remove("SCP1123_HallucinationLogic") return end
+
+        local ct = CurTime()
+        if ct >= hallucinationEnd then
+            hallucinating = false
+            CleanupSCP1123Hallucination()
+            timer.Remove("SCP1123_HallucinationLogic")
+            return
+        end
+
+        if ct >= nextPuppetSpawn and #activePuppets < maxPuppets then
+            SpawnHallucinationPuppet()
+            nextPuppetSpawn = ct + math.Rand(2, 4)
+        end
+
+        -- Puppet-Rotation
+        local ply = LocalPlayer()
+        if !IsValid(ply) then return end
+        local eyePos = ply:EyePos()
+
+        for _, puppet in ipairs(activePuppets) do
+            if IsValid(puppet) then
+                local dir = (eyePos - puppet:GetPos()):Angle()
+                dir.p = 0
+                puppet:SetAngles(dir)
+            end
+        end
+    end)
 end
+
 
 function TriggerJumpscare(duration)
     if jumpscareActive then return end
@@ -230,22 +261,6 @@ function CleanupSCP1123Hallucination()
     whisperChannel = nil
     heartbeatChannel = nil
 end
-
-hook.Add("Think", "SCP1123_HallucinationThink", function()
-    if !hallucinating then return end
-    local ct = CurTime()
-
-    if ct >= hallucinationEnd then
-        hallucinating = false
-        CleanupSCP1123Hallucination()
-        return
-    end
-
-    if ct >= nextPuppetSpawn and #activePuppets < maxPuppets then
-        SpawnHallucinationPuppet()
-        nextPuppetSpawn = ct + math.Rand(2, 4)
-    end
-end)
 
 
 hook.Add("RenderScreenspaceEffects", "SCP1123_ScreenEffect", function()
