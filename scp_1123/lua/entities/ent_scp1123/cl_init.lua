@@ -5,7 +5,6 @@ local hallucinationEnd = 0
 local nextPuppetSpawn = 0
 local activePuppets = {}
 local jumpscareActive = false
-local jumpscareEntity = nil
 local maxPuppets = 10
 local whisperChannel = nil
 local heartbeatChannel = nil
@@ -13,7 +12,6 @@ local hallucinationProgress = 0
 local jumpscareMat = Material("scp1123/jumpscare1.png")
 local vignetteMat = Material("scp1123/vignette.png")
 local jumpscareAlpha = 0
-local jumpscareActive = false
 
 local puppetModels = {
     "models/props_c17/doll01.mdl",
