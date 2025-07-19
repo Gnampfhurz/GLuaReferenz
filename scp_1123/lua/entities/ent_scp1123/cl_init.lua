@@ -307,18 +307,3 @@ function ENT:Draw()
 end
 
 
-hook.Add("Think", "SCP1123_PuppetRotation", function()
-    local ply = LocalPlayer()
-    if !IsValid(ply) then return end
-
-    local eyePos = ply:EyePos()
-
-    for _, puppet in ipairs(activePuppets) do
-        if IsValid(puppet) then
-            local dir = (eyePos - puppet:GetPos()):Angle()
-            dir.p = 0
-            puppet:SetAngles(dir)
-        end
-    end
-end)
-
