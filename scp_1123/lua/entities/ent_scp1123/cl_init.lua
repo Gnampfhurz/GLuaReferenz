@@ -26,7 +26,7 @@ local puppetModels = {
 
 local jumpscareSounds = {
     "materials/scp1123/tot.wav",
-    "npc/zombie/zombie_alert2.wav", 
+    "npc/zombie/zombie_alert2.wav",
     "npc/zombie/zombie_alert3.wav",
 }
 
@@ -49,7 +49,6 @@ net.Receive("SCP1123_Jumpscare", function()
     end)
 end)
 
-
 function StartSCP1123Hallucination(duration)
     hallucinating = true
     hallucinationEnd = CurTime() + duration
@@ -58,27 +57,16 @@ function StartSCP1123Hallucination(duration)
     if IsValid(whisperChannel) and whisperChannel:IsPlaying() then whisperChannel:Stop() end
     if IsValid(heartbeatChannel) and heartbeatChannel:IsPlaying() then heartbeatChannel:Stop() end
 
-    local whisperFile = "sound/hallu" .. math.random(1, 2) .. ".wav"
-    local heartbeatFile = "sound/heartbeat.wav"
-
-    sound.PlayFile(whisperFile, "noplay", function(channel)
-        if IsValid(channel) then
-            channel:SetVolume(0.5)
-            channel:Play()
-            whisperChannel = channel
-        end
+    sound.PlayFile("sound/hallu" .. math.random(1, 2) .. ".wav", "noplay", function(chan)
+        if IsValid(chan) then chan:SetVolume(0.5) chan:Play() whisperChannel = chan end
     end)
 
-    sound.PlayFile(heartbeatFile, "noplay", function(channel)
-        if IsValid(channel) then
-            channel:SetVolume(0.5)
-            channel:Play()
-            heartbeatChannel = channel
-        end
+    sound.PlayFile("sound/heartbeat.wav", "noplay", function(chan)
+        if IsValid(chan) then chan:SetVolume(0.5) chan:Play() heartbeatChannel = chan end
     end)
 
     timer.Create("SCP1123_HallucinationLogic", 0.25, 0, function()
-        if !hallucinating then timer.Remove("SCP1123_HallucinationLogic") return end
+        if not hallucinating then timer.Remove("SCP1123_HallucinationLogic") return end
 
         local ct = CurTime()
         if ct >= hallucinationEnd then
@@ -93,9 +81,8 @@ function StartSCP1123Hallucination(duration)
             nextPuppetSpawn = ct + math.Rand(2, 4)
         end
 
-        -- Puppet-Rotation
         local ply = LocalPlayer()
-        if !IsValid(ply) then return end
+        if not IsValid(ply) then return end
         local eyePos = ply:EyePos()
 
         for _, puppet in ipairs(activePuppets) do
@@ -108,17 +95,27 @@ function StartSCP1123Hallucination(duration)
     end)
 end
 
+function CleanupSCP1123Hallucination()
+    for _, puppet in ipairs(activePuppets) do
+        if IsValid(puppet) then puppet:Remove() end
+    end
+    activePuppets = {}
+
+    if IsValid(whisperChannel) then whisperChannel:Stop() end
+    if IsValid(heartbeatChannel) then heartbeatChannel:Stop() end
+    whisperChannel = nil
+    heartbeatChannel = nil
+end
 
 function TriggerJumpscare(duration)
     if jumpscareActive then return end
     jumpscareActive = true
 
     local ply = LocalPlayer()
-    if !IsValid(ply) then return end
+    if not IsValid(ply) then return end
 
     surface.PlaySound(table.Random(jumpscareSounds))
     util.ScreenShake(ply:GetPos(), 12, 30, 0.7, 300)
-
     jumpscareAlpha = 255
 
     timer.Create("SCP1123_JumpscareFade", 0.05, 13, function()
@@ -130,31 +127,9 @@ function TriggerJumpscare(duration)
     end)
 end
 
-hook.Add("HUDPaint", "SCP1123_JumpscareImage", function()
-    if !jumpscareActive or jumpscareAlpha <= 0 then return end
-
-    surface.SetDrawColor(255, 255, 255, jumpscareAlpha)
-    surface.SetMaterial(jumpscareMat)
-
-    local w, h = ScrW(), ScrH()
-    local sizeW, sizeH = w * 0.5, h * 0.5
-    local posX, posY = (w - sizeW) / 2, (h - sizeH) / 2
-
-    surface.DrawTexturedRect(posX, posY, sizeW, sizeH)
-end)
-
-hook.Add("HUDPaint", "SCP1123_Vignette", function()
-    if !hallucinating then return end
-
-    surface.SetDrawColor(255, 255, 255, 180)
-    surface.SetMaterial(vignetteMat)
-    surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
-end)
-
-
 function SpawnHallucinationPuppet()
     local ply = LocalPlayer()
-    if !IsValid(ply) then return end
+    if not IsValid(ply) then return end
 
     local eyePos = ply:EyePos()
     local maxAttempts = 10
@@ -168,39 +143,24 @@ function SpawnHallucinationPuppet()
         local dist = math.random(180, 400)
         local pos = eyePos + dir * dist
 
-        local tr = util.TraceLine({
-            start = eyePos,
-            endpos = pos,
-            filter = ply,
-            mask = MASK_SOLID_BRUSHONLY
-        })
+        local tr = util.TraceLine({ start = eyePos, endpos = pos, filter = ply, mask = MASK_SOLID_BRUSHONLY })
+        if tr.Hit then pos = tr.HitPos - dir * 20 end
 
-        if tr.Hit then
-            pos = tr.HitPos - dir * 20
-        end
+        local visTr = util.TraceLine({ start = eyePos, endpos = pos, filter = ply, mask = MASK_SOLID_BRUSHONLY })
 
-        local visTr = util.TraceLine({
-            start = eyePos,
-            endpos = pos,
-            filter = ply,
-            mask = MASK_SOLID_BRUSHONLY
-        })
-
-        if (!visTr.Hit or visTr.Fraction > 0.8) and (pos - eyePos):GetNormalized():Dot(ply:EyeAngles():Forward()) > -0.4 then
-            validPos = true
-            finalPos = pos
-            break
+        if (not visTr.Hit or visTr.Fraction > 0.8) and (pos - eyePos):GetNormalized():Dot(ply:EyeAngles():Forward()) > -0.4 then
+            validPos = true finalPos = pos break
         end
     end
 
-    if !validPos then
+    if not validPos then
         local ang = ply:EyeAngles()
         ang:RotateAroundAxis(ang:Up(), math.Rand(-60, 60))
         finalPos = eyePos + ang:Forward() * 200
     end
 
     local model = ClientsideModel(table.Random(puppetModels), RENDERGROUP_OPAQUE)
-    if !IsValid(model) then return end
+    if not IsValid(model) then return end
 
     model:SetModelScale(math.Rand(0.8, 1.2), 0)
     model:SetRenderMode(RENDERMODE_TRANSALPHA)
@@ -214,16 +174,16 @@ function SpawnHallucinationPuppet()
     local lifetime = math.Rand(1.5, 3.0)
 
     timer.Create(id .. "_FadeIn", 0.05, fadeIn / 0.05, function()
-        if !IsValid(model) then return end
+        if not IsValid(model) then return end
         alpha = math.min(255, alpha + 20)
         model:SetColor(Color(255, 255, 255, alpha))
     end)
 
     timer.Simple(lifetime - 0.5, function()
-        if !IsValid(model) then return end
+        if not IsValid(model) then return end
         local currentAlpha = 255
         timer.Create(id .. "_FadeOut", 0.05, 10, function()
-            if !IsValid(model) then return end
+            if not IsValid(model) then return end
             currentAlpha = math.max(0, currentAlpha - 25)
             model:SetColor(Color(255, 255, 255, currentAlpha))
         end)
@@ -240,26 +200,21 @@ function SpawnHallucinationPuppet()
     table.insert(activePuppets, model)
 end
 
+hook.Add("HUDPaint", "SCP1123_JumpscareImage", function()
+    if not jumpscareActive or jumpscareAlpha <= 0 then return end
+    surface.SetDrawColor(255, 255, 255, jumpscareAlpha)
+    surface.SetMaterial(jumpscareMat)
+    local w, h = ScrW(), ScrH()
+    local sizeW, sizeH = w * 0.5, h * 0.5
+    surface.DrawTexturedRect((w - sizeW) / 2, (h - sizeH) / 2, sizeW, sizeH)
+end)
 
-function CleanupSCP1123Hallucination()
-    for _, puppet in ipairs(activePuppets) do
-        if IsValid(puppet) then puppet:Remove() end
-    end
-    activePuppets = {}
-
-    if IsValid(jumpscareEntity) then
-        jumpscareEntity:Remove()
-    end
-    jumpscareEntity = nil
-    jumpscareActive = false
-
-    if IsValid(whisperChannel) and whisperChannel.Stop then whisperChannel:Stop() end
-    if IsValid(heartbeatChannel) and heartbeatChannel.Stop then heartbeatChannel:Stop() end
-
-    whisperChannel = nil
-    heartbeatChannel = nil
-end
-
+hook.Add("HUDPaint", "SCP1123_Vignette", function()
+    if not hallucinating then return end
+    surface.SetDrawColor(255, 255, 255, 180)
+    surface.SetMaterial(vignetteMat)
+    surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
+end)
 
 hook.Add("RenderScreenspaceEffects", "SCP1123_ScreenEffect", function()
     if hallucinating then
@@ -288,9 +243,8 @@ function ENT:Draw()
 
     local ply = LocalPlayer()
     if ply:GetPos():DistToSqr(self:GetPos()) > 300 * 300 then return end
-
-    local tr = util.TraceLine({start = ply:EyePos(), endpos = self:GetPos(), filter = ply})
-    if tr.Hit and tr.Entity != self then return end
+    local tr = util.TraceLine({ start = ply:EyePos(), endpos = self:GetPos(), filter = ply })
+    if tr.Hit and tr.Entity ~= self then return end
 
     local pos = self:GetPos() + Vector(0, 0, 25)
     local ang = ply:EyeAngles()
@@ -305,5 +259,3 @@ function ENT:Draw()
         draw.SimpleText("SHIFT + E zum Tragen", "DermaDefault", 0, 60 + floatOffset, color_white, TEXT_ALIGN_CENTER)
     cam.End3D2D()
 end
-
-
