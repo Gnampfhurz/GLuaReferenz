@@ -222,7 +222,6 @@ function ENT:CleanupPlayer(ply)
     self:StopPassiveEffectTimer(ply)
 
     timer.Remove("scp1123_input_" .. eid .. "_" .. sid)
-    timer.Remove("scp1123_passive_" .. eid .. "_" .. sid)
 
     timer.Remove("scp1123_timer_active_" .. eid .. "_" .. sid)
     timer.Remove("scp1123_timer_passive_" .. eid .. "_" .. sid)
