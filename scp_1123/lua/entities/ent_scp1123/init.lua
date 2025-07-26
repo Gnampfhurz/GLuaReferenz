@@ -31,10 +31,10 @@ function ENT:IsCarriedBy(ply)
 end
 
 function ENT:GetValidCarrier()
-    if not self.CarrierSteamID then return nil end
+    if !self.CarrierSteamID then return nil end
     local ply = self.CarrierPlayer
 
-    if not IsValid(ply) or ply:SteamID() ~= self.CarrierSteamID then
+    if !IsValid(ply) or ply:SteamID() ~= self.CarrierSteamID then
         for p in player.Iterator() do
             if p:SteamID() == self.CarrierSteamID then
                 self.CarrierPlayer = p
@@ -66,25 +66,25 @@ function ENT:RemoveCarrier()
 end
 
 function ENT:Use(ply)
-    if not IsValid(ply) then return end
+    if !IsValid(ply) then return end
 
     local sid = ply:SteamID()
     local eid = self:EntIndex()
 
-    if ply:KeyDown(IN_SPEED) and not self:IsPlayerHolding() then
+    if ply:KeyDown(IN_SPEED) and !self:IsPlayerHolding() then
         ply:PickupObject(self)
         self:SetCarrier(ply)
         self:StartPassiveEffectTimer(ply)
         return
     end
 
-    if not ply:KeyDown(IN_SPEED) and self:IsCarriedBy(ply) then
+    if !ply:KeyDown(IN_SPEED) and self:IsCarriedBy(ply) then
         self:RemoveCarrier()
         return
     end
 
     local tname = "scp1123_input_" .. eid .. "_" .. sid
-    if not timer.Exists(tname) then
+    if !timer.Exists(tname) then
         self:StartInputHoldTimer(ply)
     end
 end
@@ -96,12 +96,12 @@ function ENT:StartInputHoldTimer(ply)
     local tname = "scp1123_input_" .. eid .. "_" .. sid
 
     timer.Create(tname, 0.1, 0, function()
-        if not IsValid(ply) or not IsValid(self) then timer.Remove(tname) return end
-        if not ply:KeyDown(IN_USE) then timer.Remove(tname) return end
+        if !IsValid(ply) or !IsValid(self) then timer.Remove(tname) return end
+        if !ply:KeyDown(IN_USE) then timer.Remove(tname) return end
 
         local now = CurTime()
         if now - startTime >= self.HOLD_TIME_REQUIRED then
-            if not self:IsOnCooldown(ply) then
+            if !self:IsOnCooldown(ply) then
                 self:StartHallucination(ply)
             end
             timer.Remove(tname)
@@ -115,10 +115,10 @@ function ENT:StartPassiveEffectTimer(ply)
     local tname = "scp1123_passive_" .. eid .. "_" .. sid
 
     timer.Create(tname, self.THINK_INTERVAL, 0, function()
-        if not IsValid(ply) or not IsValid(self) then timer.Remove(tname) return end
-        if not self:IsCarriedBy(ply) then timer.Remove(tname) return end
+        if !IsValid(ply) or !IsValid(self) then timer.Remove(tname) return end
+        if !self:IsCarriedBy(ply) then timer.Remove(tname) return end
 
-        if not self:IsOnPassiveCooldown(ply) and math.Rand(0, 1) < SCP1123_Config.carrier_chance then
+        if !self:IsOnPassiveCooldown(ply) and math.Rand(0, 1) < SCP1123_Config.carrier_chance then
             self:TriggerPassiveEffect(ply)
         end
     end)
@@ -184,7 +184,7 @@ function ENT:TriggerPassiveEffect(ply)
 end
 
 function ENT:ApplyHallucinationDamage(ply, duration)
-    if not IsValid(ply) then return end
+    if !IsValid(ply) then return end
 
     local dmg = CalculateSCP1123Damage(duration)
     local deathChance = GetSCP1123DeathChance(duration) * SCP1123_Config.death_multiplier
@@ -196,7 +196,7 @@ function ENT:ApplyHallucinationDamage(ply, duration)
     net.Send(ply)
 
     timer.Simple(0.1, function()
-        if not IsValid(ply) then return end
+        if !IsValid(ply) then return end
         if willDie then
             ply:Kill()
             if self:IsCarriedBy(ply) then
