@@ -66,7 +66,7 @@ function StartSCP1123Hallucination(duration)
     end)
 
     timer.Create("SCP1123_HallucinationLogic", 0.25, 0, function()
-        if not hallucinating then timer.Remove("SCP1123_HallucinationLogic") return end
+        if !hallucinating then timer.Remove("SCP1123_HallucinationLogic") return end
 
         local ct = CurTime()
         if ct >= hallucinationEnd then
@@ -82,7 +82,7 @@ function StartSCP1123Hallucination(duration)
         end
 
         local ply = LocalPlayer()
-        if not IsValid(ply) then return end
+        if !IsValid(ply) then return end
         local eyePos = ply:EyePos()
 
         for _, puppet in ipairs(activePuppets) do
@@ -112,7 +112,7 @@ function TriggerJumpscare(duration)
     jumpscareActive = true
 
     local ply = LocalPlayer()
-    if not IsValid(ply) then return end
+    if !IsValid(ply) then return end
 
     surface.PlaySound(table.Random(jumpscareSounds))
     util.ScreenShake(ply:GetPos(), 12, 30, 0.7, 300)
@@ -129,7 +129,7 @@ end
 
 function SpawnHallucinationPuppet()
     local ply = LocalPlayer()
-    if not IsValid(ply) then return end
+    if !IsValid(ply) then return end
 
     local eyePos = ply:EyePos()
     local maxAttempts = 10
@@ -148,19 +148,19 @@ function SpawnHallucinationPuppet()
 
         local visTr = util.TraceLine({ start = eyePos, endpos = pos, filter = ply, mask = MASK_SOLID_BRUSHONLY })
 
-        if (not visTr.Hit or visTr.Fraction > 0.8) and (pos - eyePos):GetNormalized():Dot(ply:EyeAngles():Forward()) > -0.4 then
+        if (!visTr.Hit or visTr.Fraction > 0.8) and (pos - eyePos):GetNormalized():Dot(ply:EyeAngles():Forward()) > -0.4 then
             validPos = true finalPos = pos break
         end
     end
 
-    if not validPos then
+    if !validPos then
         local ang = ply:EyeAngles()
         ang:RotateAroundAxis(ang:Up(), math.Rand(-60, 60))
         finalPos = eyePos + ang:Forward() * 200
     end
 
     local model = ClientsideModel(table.Random(puppetModels), RENDERGROUP_OPAQUE)
-    if not IsValid(model) then return end
+    if !IsValid(model) then return end
 
     model:SetModelScale(math.Rand(0.8, 1.2), 0)
     model:SetRenderMode(RENDERMODE_TRANSALPHA)
@@ -174,16 +174,16 @@ function SpawnHallucinationPuppet()
     local lifetime = math.Rand(1.5, 3.0)
 
     timer.Create(id .. "_FadeIn", 0.05, fadeIn / 0.05, function()
-        if not IsValid(model) then return end
+        if !IsValid(model) then return end
         alpha = math.min(255, alpha + 20)
         model:SetColor(Color(255, 255, 255, alpha))
     end)
 
     timer.Simple(lifetime - 0.5, function()
-        if not IsValid(model) then return end
+        if !IsValid(model) then return end
         local currentAlpha = 255
         timer.Create(id .. "_FadeOut", 0.05, 10, function()
-            if not IsValid(model) then return end
+            if !IsValid(model) then return end
             currentAlpha = math.max(0, currentAlpha - 25)
             model:SetColor(Color(255, 255, 255, currentAlpha))
         end)
@@ -201,7 +201,7 @@ function SpawnHallucinationPuppet()
 end
 
 hook.Add("HUDPaint", "SCP1123_JumpscareImage", function()
-    if not jumpscareActive or jumpscareAlpha <= 0 then return end
+    if !jumpscareActive or jumpscareAlpha <= 0 then return end
     surface.SetDrawColor(255, 255, 255, jumpscareAlpha)
     surface.SetMaterial(jumpscareMat)
     local w, h = ScrW(), ScrH()
@@ -210,7 +210,7 @@ hook.Add("HUDPaint", "SCP1123_JumpscareImage", function()
 end)
 
 hook.Add("HUDPaint", "SCP1123_Vignette", function()
-    if not hallucinating then return end
+    if !hallucinating then return end
     surface.SetDrawColor(255, 255, 255, 180)
     surface.SetMaterial(vignetteMat)
     surface.DrawTexturedRect(0, 0, ScrW(), ScrH())
